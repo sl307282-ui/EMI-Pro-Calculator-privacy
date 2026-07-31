@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">EMI Pro</string>
+    <string name="title_activity_main">EMI Pro</string>
+    <string name="package_name">com.sohan.emiprocalculator</string>
+    <string name="custom_url_scheme">com.sohan.emiprocalculator</string>
+</resources>

@@ -1,0 +1,10 @@
+{
+  "ArtifactMetadata": "{\"ArtifactType\":\"other\",\"RequestFeedback\":false,\"Summary\":\"Updated LaunchScreen.storyboard on iOS to display a centered, 180x180 splash logo on a solid light gray-blue background.\"}",
+  "CodeContent": "\"<?xml version=\\\"1.0\\\" encoding=\\\"UTF-8\\\"?>\\n<document type=\\\"com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB\\\" version=\\\"3.0\\\" toolsVersion=\\\"17132\\\" targetRuntime=\\\"iOS.CocoaTouch\\\" propertyAccessControl=\\\"none\\\" useAutolayout=\\\"YES\\\" launchScreen=\n<truncated 3013 bytes>",
+  "Description": "\"Replacing LaunchScreen.storyboard contents with standard layout with constraints.\"",
+  "IsArtifact": "false",
+  "Overwrite": "true",
+  "TargetFile": "\"/Users/sl307282gmail.com/Desktop/EMI Calculator1.2/ios/App/App/Base.lproj/LaunchScreen.storyboard\"",
+  "toolAction": "\"Updating iOS storyboard file\"",
+  "toolSummary": "\"Update LaunchScreen.storyboard\""
+}

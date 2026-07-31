@@ -1,0 +1,94 @@
+{
+  "hash": "996faa09",
+  "configHash": "df952ab9",
+  "lockfileHash": "d055a610",
+  "browserHash": "c3af818d",
+  "optimized": {
+    "framer-motion": {
+      "src": "../../node_modules/framer-motion/dist/es/index.mjs",
+      "file": "framer-motion.js",
+      "fileHash": "777d2aad",
+      "needsInterop": false
+    },
+    "html2canvas": {
+      "src": "../../node_modules/html2canvas/dist/html2canvas.js",
+      "file": "html2canvas.js",
+      "fileHash": "b3d3ed62",
+      "needsInterop": true
+    },
+    "jspdf-autotable": {
+      "src": "../../node_modules/jspdf-autotable/dist/jspdf.plugin.autotable.mjs",
+      "file": "jspdf-autotable.js",
+      "fileHash": "d4e244f0",
+      "needsInterop": false
+    },
+    "jspdf": {
+      "src": "../../node_modules/jspdf/dist/jspdf.es.min.js",
+      "file": "jspdf.js",
+      "fileHash": "0c37027e",
+      "needsInterop": false
+    },
+    "lucide-react": {
+      "src": "../../node_modules/lucide-react/dist/esm/lucide-react.mjs",
+      "file": "lucide-react.js",
+      "fileHash": "9c30d4b1",
+      "needsInterop": false
+    },
+    "mathjs": {
+      "src": "../../node_modules/mathjs/lib/esm/index.js",
+      "file": "mathjs.js",
+      "fileHash": "e304ea6e",
+      "needsInterop": false
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "7f2a7814",
+      "needsInterop": true
+    },
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "b407dfd5",
+      "needsInterop": true
+    },
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "11c2ca1c",
+      "needsInterop": true
+    },
+    "recharts": {
+      "src": "../../node_modules/recharts/es6/index.js",
+      "file": "recharts.js",
+      "fileHash": "df041ab8",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-CYJPkc-J": {
+      "file": "chunk-CYJPkc-J.js",
+      "isDynamicEntry": false
+    },
+    "defineProperty-y3QZQlBv": {
+      "file": "defineProperty-y3QZQlBv.js",
+      "isDynamicEntry": false
+    },
+    "index.es-DqX36JBJ": {
+      "file": "index.es-DqX36JBJ.js",
+      "isDynamicEntry": true
+    },
+    "purify.es-ggx1bi_G": {
+      "file": "purify.es-ggx1bi_G.js",
+      "isDynamicEntry": true
+    },
+    "react-dom-0R_uKCUX": {
+      "file": "react-dom-0R_uKCUX.js",
+      "isDynamicEntry": false
+    },
+    "typeof-DZcWJ1PL": {
+      "file": "typeof-DZcWJ1PL.js",
+      "isDynamicEntry": false
+    }
+  }
+}
