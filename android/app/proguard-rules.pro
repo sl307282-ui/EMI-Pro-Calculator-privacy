@@ -50,11 +50,6 @@
     @android.webkit.JavascriptInterface <methods>;
 }
 
-# Capgo Capacitor Updater (OTA Updates)
--keep class ee.forgr.capacitor_updater.** { *; }
--keep class ee.forgr.plugin.capacitor_updater.** { *; }
--dontwarn ee.forgr.capacitor_updater.**
-
 # Apache Cordova compatibility
 -keep class org.apache.cordova.** { *; }
 

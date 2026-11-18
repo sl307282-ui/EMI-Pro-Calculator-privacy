@@ -15,10 +15,7 @@
     "SystemBars": {
       "insetsHandling": "css"
     },
-    "CapacitorUpdater": {
-      "autoUpdate": true,
-      "appId": "com.sohan.emiprocalculator"
-    },
+
     "StatusBar": {
       "overlaysWebView": true
     },

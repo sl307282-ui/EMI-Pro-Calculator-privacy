@@ -1,14 +1,8 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { CapacitorUpdater } from '@capgo/capacitor-updater'
 import './index.css'
 import App from './App.jsx'
 
-try {
-  CapacitorUpdater.notifyAppReady();
-} catch (e) {
-  console.warn('CapacitorUpdater.notifyAppReady failed:', e);
-}
 
 window.onerror = function(message, source, lineno, colno, error) {
   alert("Error: " + message + " at " + source + ":" + lineno);

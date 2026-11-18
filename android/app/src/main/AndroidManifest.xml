@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-sdk tools:overrideLibrary="org.apache.cordova, com.capacitorjs.plugins.app, com.capacitorjs.plugins.share, com.capacitorjs.plugins.splashscreen, com.capacitorjs.plugins.statusbar, com.capacitorjs.plugins.localnotifications, com.getcapacitor.android, ee.forgr.capacitor_updater" />
+    <uses-sdk tools:overrideLibrary="org.apache.cordova, com.capacitorjs.plugins.app, com.capacitorjs.plugins.share, com.capacitorjs.plugins.splashscreen, com.capacitorjs.plugins.statusbar, com.capacitorjs.plugins.localnotifications, com.getcapacitor.android" />
 
     <application
         android:allowBackup="true"
