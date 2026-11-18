@@ -8,8 +8,12 @@ import {
 } from '../utils/calculatorLogic';
 import { useSettings } from '../context/SettingsContext';
 import { shareAsText } from '../utils/exportUtils';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 
 const DetailsScreen = ({ data, onBack }) => {
+  const { headerRef, handleScroll } = useHeaderScroll();
   const { currency } = useSettings();
   const [view, setView] = useState('year'); // 'year' or 'month'
   
@@ -41,25 +45,31 @@ const DetailsScreen = ({ data, onBack }) => {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white dark:bg-gray-900 transition-colors duration-300 overflow-hidden">
-      {/* Header */}
-      <header className="flex-shrink-0 px-6 pt-14 pb-6 flex justify-between items-center bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 z-30">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 -ml-2 text-gray-800 dark:text-gray-200 active:scale-90 transition-transform">
-            <ChevronLeft size={24} />
-          </button>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Amortization Schedule</h1>
-        </div>
-        <button 
-          onClick={handleShare}
-          className="p-2.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-gray-600 dark:text-gray-400 active:scale-90 hover:scale-105 transition-all duration-300 shadow-sm"
-          title="Share Amortization Details"
-        >
-          <Share2 size={20} className="transition-transform duration-300 hover:rotate-12" />
-        </button>
-      </header>
-
-      <div className="flex-1 overflow-y-auto overscroll-contain touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
+    <div className="flex-1 flex flex-col h-full bg-white dark:bg-gray-900 transition-colors duration-300 overflow-hidden relative">
+      <div 
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto no-scrollbar overscroll-contain touch-pan-y" 
+        style={{ 
+          WebkitOverflowScrolling: 'touch',
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px)'
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title="Amortization Schedule"
+          onBack={onBack}
+          rightActions={
+            <button 
+              type="button"
+              onClick={handleShare}
+              className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center"
+              title="Share Amortization Details"
+              aria-label="Share"
+            >
+              <Share2 size={20} strokeWidth={2} />
+            </button>
+          }
+        />
         {/* Summary Table */}
         <section className="px-6 py-6">
           <div className="bg-gray-50 dark:bg-gray-800/50 rounded-3xl p-6 space-y-4 border border-gray-100 dark:border-gray-700/50">

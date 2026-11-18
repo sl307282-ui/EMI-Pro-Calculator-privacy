@@ -2,11 +2,19 @@
   "appId": "com.sohan.emiprocalculator",
   "appName": "EMI Pro",
   "webDir": "dist",
+  "backgroundColor": "#F8FAFC",
   "server": {
     "androidScheme": "http",
     "hostname": "localhost"
   },
   "plugins": {
+    "Keyboard": {
+      "resize": "none",
+      "resizeOnFullScreen": false
+    },
+    "SystemBars": {
+      "insetsHandling": "css"
+    },
     "CapacitorUpdater": {
       "autoUpdate": true,
       "appId": "com.sohan.emiprocalculator"
@@ -15,13 +23,14 @@
       "overlaysWebView": true
     },
     "SplashScreen": {
-      "launchShowDuration": 2000,
       "launchAutoHide": false,
+      "launchShowDuration": 0,
+      "launchFadeOutDuration": 280,
+      "backgroundColor": "#FFFFFF",
       "showSpinner": false,
       "androidScaleType": "CENTER_CROP",
       "splashFullScreen": false,
-      "splashImmersive": false,
-      "launchFadeOutDuration": 200
+      "splashImmersive": false
     }
   }
 }

@@ -18,32 +18,56 @@
 @layer base {
   :root {
     color-scheme: light;
+    --safe-area-inset-top: env(safe-area-inset-top, 0px);
+    --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-inset-left: env(safe-area-inset-left, 0px);
+    --safe-area-inset-right: env(safe-area-inset-right, 0px);
+    --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+    --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+    --safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+    --safe-bottom-max: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+    --safe-bottom-clearance: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+    --subpage-bottom-clearance: calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px);
+    --keypad-bottom-clearance: calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 8px);
+    --tabbar-bottom-offset: calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 8px);
+    --tabpage-bottom-clearance: calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 88px);
+  }
+
+  /* Legacy Chromium (< 87) polyfill for inset-0 */
+  .inset-0 {
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
   }
 
   .dark {
     color-scheme: dark;
   }
 
-  html {
-    @apply bg-gray-50 transition-colors duration-300;
+  html, body, #root {
+    background-color: #F8FAFC;
+    min-height: 100svh;
+    height: 100svh;
   }
 
-  .dark html {
-    @apply bg-gray-900;
+  html.dark, body.dark, html.dark body, html.dark #root, .dark #root {
+    background-color: #0F172A;
   }
 
   body {
-    @apply bg-gray-50 text-gray-900 font-sans antialiased transition-colors duration-300;
+    @apply text-gray-900 font-sans antialiased;
   }
   
   .dark body {
-    @apply bg-gray-900 text-white;
+    @apply text-white;
   }
 }
 
 @layer components {
   .mobile-container {
-    @apply min-h-screen max-w-md mx-auto bg-white shadow-2xl relative overflow-hidden flex flex-col transition-colors duration-300;
+    @apply max-w-md mx-auto bg-white shadow-2xl relative overflow-hidden flex flex-col;
+    min-height: 100svh;
   }
   
   .dark .mobile-container {
@@ -75,11 +99,39 @@
   }
   
   .input-pill {
-    @apply w-full bg-gray-100 border-none rounded-2xl px-5 py-4 focus:ring-2 focus:ring-primary outline-none transition-all;
+    @apply w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-2xl px-5 py-3.5 text-sm font-semibold text-slate-900 placeholder:text-slate-500 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all;
+    scroll-margin-top: 96px;
+    scroll-margin-bottom: 120px;
   }
   
   .dark .input-pill {
-    @apply bg-gray-800 text-white focus:ring-blue-500;
+    @apply bg-gray-800/90 border-[#334155] text-white placeholder:text-slate-400 focus:ring-blue-500/20 focus:border-blue-500;
+  }
+
+  .input-wrapper {
+    scroll-margin-top: 96px;
+    scroll-margin-bottom: 120px;
+  }
+
+  .instant-gpu-screen {
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    will-change: transform;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .calc-label {
+    @apply text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3];
+  }
+
+  .calc-toggle-unselected {
+    @apply text-slate-600 dark:text-slate-300 font-semibold text-[12px];
+  }
+
+  .calc-toggle-selected {
+    @apply bg-white dark:bg-gray-700 text-primary dark:text-blue-400 font-bold text-[12px] shadow-sm;
   }
 }
 
@@ -141,8 +193,125 @@ input[type=number] {
   -moz-appearance: textfield;
 }
 
-/* Enforce that header back and utility buttons have zero padding and match the 24px icon size exactly */
-header button:not(.header-right-btn):has(svg) {
+/* Circular Back Button styling across the app */
+.app-back-btn {
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  min-height: 36px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 9999px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  background-color: #F1F5F9 !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  color: #0F172A !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  cursor: pointer !important;
+  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease !important;
+}
+
+.dark .app-back-btn {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #F8FAFC !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+}
+
+.app-back-btn:hover {
+  background-color: #E2E8F0 !important;
+}
+
+.dark .app-back-btn:hover {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.app-back-btn:active {
+  transform: scale(0.92) !important;
+  background-color: #CBD5E1 !important;
+}
+
+.dark .app-back-btn:active {
+  transform: scale(0.92) !important;
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.app-back-btn-white {
+  background-color: rgba(255, 255, 255, 0.18) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+}
+
+.app-back-btn-white:hover {
+  background-color: rgba(255, 255, 255, 0.26) !important;
+}
+
+.app-back-btn-white:active {
+  transform: scale(0.92) !important;
+  background-color: rgba(255, 255, 255, 0.32) !important;
+}
+
+/* Circular Back Button on Loan Refinance matching Wealth Planner with smooth scroll reduction */
+.loan-refinance-back-btn {
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 9999px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  background-color: #F1F5F9 !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  color: #0F172A !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+.dark .loan-refinance-back-btn {
+  background-color: #1E293B !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #F8FAFC !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+}
+
+.loan-refinance-back-btn:hover {
+  background-color: #E2E8F0 !important;
+}
+
+.dark .loan-refinance-back-btn:hover {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.loan-refinance-back-btn:active {
+  transform: scale(0.92) !important;
+  background-color: #CBD5E1 !important;
+}
+
+.dark .loan-refinance-back-btn:active {
+  transform: scale(0.92) !important;
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.loan-refinance-back-btn.expanded {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+}
+
+.loan-refinance-back-btn.compact {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+}
+
+/* Enforce that small icon utility buttons have zero padding and match 24px icon size */
+header button:not(.header-right-btn):not(.app-back-btn):not(.loan-refinance-back-btn):has(svg) {
   padding: 0 !important;
   margin-left: 0 !important;
   margin-right: 0 !important;
@@ -151,13 +320,14 @@ header button:not(.header-right-btn):has(svg) {
   justify-content: center !important;
   width: 24px !important;
   height: 24px !important;
-  border-radius: 9999px !important; /* Keep active/hover tap states circular and centered */
+  border-radius: 9999px !important;
 }
 
-/* Specific styling for header right utility buttons to make them larger and touch-friendly */
+/* Specific styling for header right utility buttons to make them touch-friendly and clean */
 header button.header-right-btn {
-  width: 42px !important;
-  height: 42px !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
   padding: 0 !important;
   margin-left: 0 !important;
   margin-right: 0 !important;
@@ -165,6 +335,7 @@ header button.header-right-btn {
   align-items: center !important;
   justify-content: center !important;
   border-radius: 9999px !important;
+  flex-shrink: 0 !important;
 }
 
 /* Custom View Transition styles to prevent default additive blending (which causes white blinks/flashes) */
@@ -197,5 +368,114 @@ html:active-view-transition * {
   transition: none !important;
   animation-delay: 0s !important;
 }
+
+/* Unified Sticky Scroll-Shrinking App Header */
+.app-header-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  padding-top: calc(max(var(--safe-top, 0px), 38px) + 14px - (8px * var(--scroll-progress, 0)));
+  padding-bottom: calc(14px - (6px * var(--scroll-progress, 0)));
+  will-change: padding, box-shadow, border-color;
+}
+
+.app-header-surface,
+.app-header-opaque,
+.app-header-gradient,
+.app-header-soft-blue {
+  background: #DBEAFE;
+  background: linear-gradient(180deg, #DBEAFE 0%, #E0EFFE 100%);
+  border-bottom: 1px solid rgba(37, 99, 235, 0.18);
+  box-shadow: 0 4px 16px -2px rgba(15, 23, 42, calc(0.05 * var(--scroll-progress, 0)));
+}
+
+.dark .app-header-surface,
+.dark .app-header-opaque,
+.dark .app-header-gradient,
+.dark .app-header-soft-blue {
+  background: #172554;
+  background: linear-gradient(180deg, #172554 0%, #1E293B 100%);
+  border-bottom: 1px solid rgba(96, 165, 250, 0.18);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, calc(0.35 * var(--scroll-progress, 0)));
+}
+
+.app-header-title {
+  transform: scale(calc(1 - 0.08 * var(--scroll-progress, 0)));
+  transform-origin: left center;
+  will-change: transform;
+}
+
+.app-header-back-btn {
+  transform: scale(calc(1 - 0.1 * var(--scroll-progress, 0)));
+  transform-origin: center center;
+  will-change: transform;
+}
+
+.app-header-actions {
+  transform: scale(calc(1 - 0.1 * var(--scroll-progress, 0)));
+  transform-origin: right center;
+  will-change: transform;
+}
+
+/* ==========================================================================
+   Collapsing Tabs (Sticky, Scroll-Interpolated Segmented Control)
+   ========================================================================== */
+.collapsing-tabs-wrapper {
+  position: sticky;
+  top: calc(max(var(--safe-top, 0px), 38px) + 50px);
+  z-index: 20;
+  width: 100%;
+  background-color: #F8FAFC;
+  padding-top: calc(10px - (4px * var(--tabs-progress, 0)));
+  padding-bottom: calc(10px - (4px * var(--tabs-progress, 0)));
+  padding-left: 16px;
+  padding-right: 16px;
+  border-bottom: 1px solid rgba(15, 23, 42, calc(0.06 * var(--tabs-progress, 0)));
+  box-shadow: 0 4px 12px rgba(15, 23, 42, calc(0.04 * var(--tabs-progress, 0)));
+  transition: padding 200ms cubic-bezier(0.2, 0.0, 0.0, 1.0), border-color 200ms cubic-bezier(0.2, 0.0, 0.0, 1.0), box-shadow 200ms cubic-bezier(0.2, 0.0, 0.0, 1.0);
+  will-change: padding, border-color, box-shadow;
+}
+
+.dark .collapsing-tabs-wrapper {
+  background-color: #0F172A;
+  border-bottom: 1px solid rgba(255, 255, 255, calc(0.08 * var(--tabs-progress, 0)));
+  box-shadow: 0 4px 12px rgba(0, 0, 0, calc(0.25 * var(--tabs-progress, 0)));
+}
+
+.collapsing-tabs-pill {
+  padding: calc(4px - (1.5px * var(--tabs-progress, 0)));
+  border-radius: calc(16px - (4px * var(--tabs-progress, 0)));
+  transition: padding 200ms cubic-bezier(0.2, 0.0, 0.0, 1.0), border-radius 200ms cubic-bezier(0.2, 0.0, 0.0, 1.0);
+  will-change: padding, border-radius;
+}
+
+.collapsing-tabs-btn {
+  height: calc(36px - (8px * var(--tabs-progress, 0)));
+  border-radius: calc(12px - (3px * var(--tabs-progress, 0)));
+  font-size: calc(11.5px - (1.5px * var(--tabs-progress, 0)));
+  line-height: calc(36px - (8px * var(--tabs-progress, 0)));
+  padding: 0 10px;
+  transition: height 200ms cubic-bezier(0.2, 0.0, 0.0, 1.0), font-size 200ms cubic-bezier(0.2, 0.0, 0.0, 1.0), line-height 200ms cubic-bezier(0.2, 0.0, 0.0, 1.0), border-radius 200ms cubic-bezier(0.2, 0.0, 0.0, 1.0);
+  will-change: height, border-radius, font-size;
+}
+
+.collapsing-tabs-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: scale(calc(1 - (0.15 * var(--tabs-progress, 0))));
+  transform-origin: center center;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .collapsing-tabs-wrapper,
+  .collapsing-tabs-pill,
+  .collapsing-tabs-btn,
+  .collapsing-tabs-icon {
+    transition: none !important;
+  }
+}
+
 
 

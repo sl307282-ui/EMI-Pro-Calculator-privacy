@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useSettings } from '../context/SettingsContext';
 import { 
   ChevronLeft, Share2, 
@@ -19,8 +20,12 @@ import {
 } from '../utils/calculatorLogic';
 import { shareAsImage, shareAsText } from '../utils/exportUtils';
 import VoiceInput from './VoiceInput';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 
 const LandPurchaseCalculator = ({ onBack }) => {
+  const { headerRef, scrollRef, handleScroll } = useHeaderScroll();
   const { currency, currencySymbol } = useSettings();
   // State for form inputs
   const [formData, setFormData] = useState({
@@ -342,33 +347,38 @@ const LandPurchaseCalculator = ({ onBack }) => {
   const calculatedEmi = calculateEMI(calculatedLoanAmount, interestRate, tenureYears, false);
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-300 overflow-hidden">
-      {/* Header */}
-      <header className="px-6 pt-14 pb-4 flex justify-between items-center bg-white dark:bg-gray-900 sticky top-0 z-20 shadow-sm border-b border-gray-100 dark:border-gray-805 transition-colors duration-300">
-        <div className="flex items-center gap-4">
-          <button 
-            type="button"
-            onClick={handleBackClick} 
-            className="p-2 -ml-2 text-gray-800 dark:text-gray-200 active:scale-90 transition-transform"
-          >
-            <ChevronLeft size={24} className="pointer-events-none" />
-          </button>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white animate-fade-in">land purchase calculation</h1>
-        </div>
-        <button 
-          onClick={() => setIsHistoryOpen(true)}
-          className="text-gray-800 dark:text-gray-200 active:scale-90 transition-transform relative"
-        >
-          <History size={22} />
-          {history.length > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-[8px] font-black text-white w-4 h-4 rounded-full flex items-center justify-center border border-white dark:border-gray-900">
-              {history.length}
-            </span>
-          )}
-        </button>
-      </header>
+    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden relative">
+      <div 
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto no-scrollbar"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px)'
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title="Land Purchase"
+          onBack={handleBackClick}
+          rightActions={
+            <button 
+              type="button"
+              onClick={() => setIsHistoryOpen(true)}
+              aria-label="Calculation History"
+              title="History"
+              className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center relative"
+            >
+              <History size={20} strokeWidth={2} />
+              {history.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-[8px] font-black text-white w-4 h-4 rounded-full flex items-center justify-center border border-white dark:border-gray-900">
+                  {history.length}
+                </span>
+              )}
+            </button>
+          }
+        />
 
-      <div className="flex-1 overflow-y-auto no-scrollbar p-6 space-y-6 pb-24">
+        <div className="p-6 space-y-6">
         {!showResults ? (
           <>
             {/* Section 1: Property Details */}
@@ -381,7 +391,7 @@ const LandPurchaseCalculator = ({ onBack }) => {
               {/* Area Input */}
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Area of Land/Plot</label>
+                  <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3]">Area of Land/Plot</label>
                   <div className="flex items-center gap-2">
                     <VoiceInput label="Area" onResult={(val) => setFormData(prev => ({ ...prev, area: val }))} />
                   </div>
@@ -390,12 +400,12 @@ const LandPurchaseCalculator = ({ onBack }) => {
                   <input
                     type="text"
                     inputMode="decimal"
-                    className="input-pill flex-1 h-[44px] font-bold text-base px-4 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+                    className="input-pill flex-1 h-[44px] font-semibold text-base px-4 dark:bg-gray-800 dark:text-white dark:border-gray-700"
                     value={formatNumericInput(formData.area)}
                     onChange={(e) => setFormData({ ...formData, area: parseFormattedNumber(e.target.value) })}
                   />
                   <select 
-                    className="w-28 h-[44px] bg-gray-100 dark:bg-gray-800 rounded-2xl px-3 font-bold text-xs outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 dark:text-white border border-transparent dark:border-gray-700"
+                    className="w-28 h-[44px] bg-[#F8FAFC] dark:bg-gray-800 rounded-2xl px-3 font-semibold text-[12px] outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100 border border-[#CBD5E1] dark:border-slate-700"
                     value={formData.unit}
                     onChange={(e) => handleUnitChange(e.target.value)}
                   >
@@ -409,13 +419,13 @@ const LandPurchaseCalculator = ({ onBack }) => {
               {/* Rate Input */}
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Rate ({currencySymbol} per {formData.unit})</label>
+                  <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3]">Rate ({currencySymbol} per {formData.unit})</label>
                   <VoiceInput label="Rate" onResult={(val) => setFormData(prev => ({ ...prev, rate: val }))} />
                 </div>
                 <input
                   type="text"
                   inputMode="decimal"
-                  className="input-pill h-[44px] font-bold text-base px-4 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+                  className="input-pill h-[44px] font-semibold text-base px-4 dark:bg-gray-800 dark:text-white dark:border-gray-700"
                   value={formatNumericInput(formData.rate)}
                   onChange={(e) => setFormData({ ...formData, rate: parseFormattedNumber(e.target.value) })}
                 />
@@ -424,7 +434,7 @@ const LandPurchaseCalculator = ({ onBack }) => {
               {/* Plot/Land Value (Read-only) */}
               <div className="bg-blue-50/50 dark:bg-blue-950/20 rounded-2xl p-3 border border-blue-100/50 dark:border-gray-800/40 flex justify-between items-center transition-colors duration-300">
                 <div>
-                  <p className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-tighter">Plot / Land Value</p>
+                  <p className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Plot / Land Value</p>
                   <p className="text-lg font-black text-blue-900 dark:text-blue-300 mt-0.5">
                     {formatCurrency(landValue, currency)}
                   </p>
@@ -444,30 +454,32 @@ const LandPurchaseCalculator = ({ onBack }) => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase">Part A (Registry)</label>
+                  <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3]">Part A (Registry)</label>
                   <input
                     type="text"
                     inputMode="decimal"
-                    className="input-pill h-[52px] font-bold text-base bg-indigo-50/30 dark:bg-indigo-950/20 dark:text-white dark:border-gray-700"
+                    className="input-pill h-[52px] font-semibold text-base bg-indigo-50/30 dark:bg-indigo-950/20 dark:text-white dark:border-gray-700"
                     value={formatNumericInput(formData.partA)}
                     onChange={(e) => handlePartAChange(parseFormattedNumber(e.target.value))}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase">Part B (Cash)</label>
+                  <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3]">Part B (Cash)</label>
                   <input
                     type="text"
                     inputMode="decimal"
-                    className="input-pill h-[52px] font-bold text-base bg-emerald-50/30 dark:bg-emerald-950/20 dark:text-white dark:border-gray-700"
+                    className="input-pill h-[52px] font-semibold text-base bg-emerald-50/30 dark:bg-emerald-950/20 dark:text-white dark:border-gray-700"
                     value={formatNumericInput(formData.partB)}
                     onChange={(e) => handlePartBChange(parseFormattedNumber(e.target.value))}
                   />
                 </div>
               </div>
-              <p className="text-[10px] text-gray-400 dark:text-gray-550 font-medium italic text-center">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold italic text-center">
                 Note: Part A + Part B must equal total Land Value
               </p>
-            </section>            {/* Section 3: Financing Options */}
+            </section>
+
+            {/* Section 3: Financing Options */}
             <section className="bg-white dark:bg-gray-850 rounded-3xl p-5 shadow-soft border border-gray-100 dark:border-gray-800 transition-colors duration-300">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 flex-1">
@@ -475,11 +487,11 @@ const LandPurchaseCalculator = ({ onBack }) => {
                   <h2 className="text-sm font-black text-gray-800 dark:text-white uppercase tracking-wider">Home Loan Required</h2>
                 </div>
 
-                <div className="w-32 h-[40px] flex bg-gray-100 dark:bg-gray-800 p-0.5 rounded-xl relative border border-transparent dark:border-gray-700 shrink-0">
+                <div className="w-32 h-[40px] flex bg-gray-100 dark:bg-gray-800/80 p-0.5 rounded-xl relative border border-slate-200 dark:border-slate-700/60 shrink-0">
                   <button
                     type="button"
                     onClick={() => setFormData(prev => ({ ...prev, fundingType: 'no' }))}
-                    className={`flex-1 relative z-10 rounded-lg text-[10px] font-black transition-colors ${formData.fundingType === 'no' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}
+                    className={`flex-1 relative z-10 rounded-lg text-[12px] font-semibold transition-colors ${formData.fundingType === 'no' ? 'text-primary dark:text-blue-400 font-bold' : 'text-slate-600 dark:text-slate-300'}`}
                   >
                     {formData.fundingType === 'no' && (
                       <motion.div layoutId="funding-type" className="absolute inset-0 bg-white dark:bg-gray-700 rounded-lg shadow-sm -z-10" />
@@ -489,7 +501,7 @@ const LandPurchaseCalculator = ({ onBack }) => {
                   <button
                     type="button"
                     onClick={() => setFormData(prev => ({ ...prev, fundingType: 'yes' }))}
-                    className={`flex-1 relative z-10 rounded-lg text-[10px] font-black transition-colors ${formData.fundingType === 'yes' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}
+                    className={`flex-1 relative z-10 rounded-lg text-[12px] font-semibold transition-colors ${formData.fundingType === 'yes' ? 'text-primary dark:text-blue-400 font-bold' : 'text-slate-600 dark:text-slate-300'}`}
                   >
                     {formData.fundingType === 'yes' && (
                       <motion.div layoutId="funding-type" className="absolute inset-0 bg-white dark:bg-gray-700 rounded-lg shadow-sm -z-10" />
@@ -517,65 +529,63 @@ const LandPurchaseCalculator = ({ onBack }) => {
                       {/* Loan Amount (%) */}
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex-[0.7] space-y-0.5">
-                          <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase leading-tight">Loan Amount (%)</label>
-                          <p className="text-[8px] text-gray-400 dark:text-gray-550 font-medium italic leading-tight">On Part A only</p>
+                          <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3]">Loan Amount (%)</label>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold italic leading-tight">On Part A only</p>
                         </div>
                         <div className="flex-[1.3] flex items-center gap-2">
                           <div className="relative flex-1">
                             <input
                               type="number"
-                              className="input-pill h-[44px] font-black text-sm px-3 pr-7 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+                              className="input-pill h-[44px] font-semibold text-sm px-3 pr-7 dark:bg-gray-800 dark:text-white dark:border-gray-700"
                               value={formData.loanPercent}
                               onChange={(e) => handlePercentageChange('loanPercent', e.target.value)}
                             />
-                            <Percent size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-550" />
+                            <Percent size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
                           </div>
                         </div>
                       </div>
 
                       {/* Calculated Loan Amount Display */}
                       <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-900/40 p-3 rounded-xl border border-gray-100 dark:border-gray-800/40">
-                        <span className="text-[10px] font-bold text-gray-400 dark:text-gray-550 uppercase">Loan Amount</span>
-                        <span className="text-xs font-black text-purple-600 dark:text-purple-400">
+                        <span className="text-[12px] font-semibold text-slate-600 dark:text-slate-300">Loan Amount</span>
+                        <span className="text-xs font-bold text-purple-600 dark:text-purple-400">
                           {formatCurrency(calculatedLoanAmount, currency)}
                         </span>
                       </div>
 
                       {/* Interest Rate (%) */}
                       <div className="flex items-center justify-between gap-3">
-                        <label className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase flex-1">Interest Rate (%)</label>
+                        <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3] flex-1">Interest Rate (%)</label>
                         <div className="flex-1 relative">
                           <input
                             type="number"
                             step="0.1"
-                            className="input-pill h-[44px] font-black text-sm px-3 pr-7 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+                            className="input-pill h-[44px] font-semibold text-sm px-3 pr-7 dark:bg-gray-800 dark:text-white dark:border-gray-700"
                             value={formData.interestRate}
                             onChange={(e) => handlePercentageChange('interestRate', e.target.value)}
                           />
-                          <Percent size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-550" />
+                          <Percent size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
                         </div>
                       </div>
 
                       {/* Tenure (Years) */}
                       <div className="flex items-center justify-between gap-3">
-                        <label className="text-[11px] font-bold text-gray-505 dark:text-gray-400 uppercase flex-1">Tenure (Years)</label>
+                        <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3] flex-1">Tenure (Years)</label>
                         <div className="flex-1 relative">
                           <input
                             type="number"
-                            className="input-pill h-[44px] font-black text-sm px-3 pr-14 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+                            className="input-pill h-[44px] font-semibold text-sm px-3 pr-14 dark:bg-gray-800 dark:text-white dark:border-gray-700"
                             value={formData.tenure}
                             onChange={(e) => setFormData(prev => ({ ...prev, tenure: e.target.value }))}
                           />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400 dark:text-gray-550 uppercase">Years</span>
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Years</span>
                         </div>
                       </div>
-
-
 
                       {/* Calculated Monthly EMI Display */}
                       <div className="bg-blue-50/50 dark:bg-blue-950/20 p-4 rounded-2xl border border-blue-100/50 dark:border-gray-800/40 flex justify-between items-center mt-2">
                         <div>
-                          <p className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">EMI</p>
+                          <p className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">EMI</p>
                           <p className="text-base font-black text-blue-900 dark:text-blue-300 mt-0.5">
                             {formatCurrency(calculatedEmi, currency)}/month
                           </p>
@@ -600,39 +610,39 @@ const LandPurchaseCalculator = ({ onBack }) => {
               <div className="space-y-4">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex-1 space-y-1">
-                    <label className="text-[11px] font-bold text-gray-550 dark:text-gray-400 uppercase">Registry Charge (%)</label>
-                    <p className="text-[9px] text-gray-400 dark:text-gray-555 font-medium italic">Applied to Part A amount</p>
+                    <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3]">Registry Charge (%)</label>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold italic">Applied to Part A amount</p>
                   </div>
                   <div className="flex-1 relative">
                     <input
                       type="number"
                       step="0.1"
-                      className="input-pill h-[48px] font-bold pr-8 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+                      className="input-pill h-[48px] font-semibold pr-8 dark:bg-gray-800 dark:text-white dark:border-gray-700"
                       value={formData.registryChargePercent}
                       onChange={(e) => handlePercentageChange('registryChargePercent', e.target.value)}
                     />
-                    <Percent size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-555" />
+                    <Percent size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-gray-505 dark:text-gray-400 uppercase">Broker Fees</label>
+                  <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3]">Broker Fees</label>
                   <div className="flex gap-2">
                     <div className="flex-1 relative">
                       <input
                         type="text"
                         inputMode="decimal"
-                        className="input-pill h-[48px] font-bold pr-8 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+                        className="input-pill h-[48px] font-semibold pr-8 dark:bg-gray-800 dark:text-white dark:border-gray-700"
                         value={formData.brokerFee}
                         onChange={(e) => handleBrokerFeeChange(e.target.value)}
                       />
-                      {formData.isBrokerFeePercent && <Percent size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-555" />}
+                      {formData.isBrokerFeePercent && <Percent size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />}
                     </div>
-                    <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-2xl relative w-36 h-[48px] border border-transparent dark:border-gray-700">
+                    <div className="flex bg-gray-100 dark:bg-gray-800/80 p-1 rounded-2xl relative w-36 h-[48px] border border-slate-200 dark:border-slate-700/60">
                       <button
                         type="button"
                         onClick={() => toggleBrokerFeePercent(true)}
-                        className={`flex-1 relative z-10 rounded-xl text-[9px] font-black transition-colors ${formData.isBrokerFeePercent ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}
+                        className={`flex-1 relative z-10 rounded-xl text-[11px] font-semibold transition-colors ${formData.isBrokerFeePercent ? 'text-primary dark:text-blue-400 font-bold' : 'text-slate-600 dark:text-slate-300'}`}
                       >
                         {formData.isBrokerFeePercent && <motion.div layoutId="broker-type" className="absolute inset-0 bg-white dark:bg-gray-700 rounded-xl shadow-sm -z-10" />}
                         % Value
@@ -640,7 +650,7 @@ const LandPurchaseCalculator = ({ onBack }) => {
                       <button
                         type="button"
                         onClick={() => toggleBrokerFeePercent(false)}
-                        className={`flex-1 relative z-10 rounded-xl text-[9px] font-black transition-colors ${!formData.isBrokerFeePercent ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}
+                        className={`flex-1 relative z-10 rounded-xl text-[11px] font-semibold transition-colors ${!formData.isBrokerFeePercent ? 'text-primary dark:text-blue-400 font-bold' : 'text-slate-600 dark:text-slate-300'}`}
                       >
                         {!formData.isBrokerFeePercent && <motion.div layoutId="broker-type" className="absolute inset-0 bg-white dark:bg-gray-700 rounded-xl shadow-sm -z-10" />}
                         {currencySymbol} / {formData.unit.split(' ')[1] || 'Unit'}
@@ -810,11 +820,12 @@ const LandPurchaseCalculator = ({ onBack }) => {
             </motion.div>
           )
         )}
+        </div>
       </div>
 
       {/* Premium History Drawer */}
       <AnimatePresence>
-        {isHistoryOpen && (
+        {isHistoryOpen && typeof document !== 'undefined' && createPortal(
           <>
             {/* Backdrop Overlay */}
             <motion.div
@@ -822,7 +833,7 @@ const LandPurchaseCalculator = ({ onBack }) => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsHistoryOpen(false)}
-              className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm z-40 cursor-pointer"
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[9999] cursor-pointer"
             />
 
             {/* Sliding Panel */}
@@ -831,7 +842,8 @@ const LandPurchaseCalculator = ({ onBack }) => {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="absolute bottom-0 left-0 right-0 max-h-[85%] bg-white dark:bg-gray-900 rounded-t-[2.5rem] shadow-premium z-50 flex flex-col overflow-hidden border-t border-slate-100 dark:border-gray-800 transition-colors"
+              style={{ paddingBottom: 'calc(20px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))' }}
+              className="fixed bottom-0 left-0 right-0 max-h-[85%] bg-white dark:bg-gray-900 rounded-t-[2.5rem] shadow-premium z-[10000] flex flex-col overflow-hidden border-t border-slate-100 dark:border-gray-800 transition-colors"
             >
               {/* Pull Bar */}
               <div className="w-12 h-1 bg-slate-200 dark:bg-gray-700 rounded-full mx-auto my-3 shrink-0" />
@@ -907,7 +919,8 @@ const LandPurchaseCalculator = ({ onBack }) => {
                 )}
               </div>
             </motion.div>
-          </>
+          </>,
+          document.body
         )}
       </AnimatePresence>
     </div>

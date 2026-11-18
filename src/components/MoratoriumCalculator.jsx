@@ -8,8 +8,12 @@ import {
   calculateTenure 
 } from '../utils/calculatorLogic';
 import { shareAsText } from '../utils/exportUtils';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 
 const MoratoriumCalculator = ({ onBack }) => {
+  const { headerRef, scrollRef, handleScroll } = useHeaderScroll();
   const [formData, setFormData] = useState({
     amount: '1000000',
     interest: '8.5',
@@ -148,16 +152,33 @@ const MoratoriumCalculator = ({ onBack }) => {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden">
-      {/* Header */}
-      <header className="px-6 pt-14 pb-4 flex items-center gap-4 bg-white sticky top-0 z-20 shadow-sm">
-        <button onClick={onBack} className="p-2 -ml-2 text-gray-800 active:scale-90 transition-transform">
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className="text-xl font-bold text-gray-900">Moratorium Calculator</h1>
-      </header>
+    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden h-full relative">
+      <div 
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto no-scrollbar"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px)'
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title="Moratorium Calculator"
+          onBack={onBack}
+          rightActions={
+            <button 
+              type="button"
+              onClick={handleShare}
+              aria-label="Share Calculation"
+              title="Share"
+              className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center"
+            >
+              <Share2 size={20} strokeWidth={2} />
+            </button>
+          }
+        />
 
-      <div className="flex-1 overflow-y-auto no-scrollbar p-6 space-y-6">
+        <div className="p-6 space-y-6">
         {/* Section 1: Loan Details */}
         <section className="bg-white rounded-3xl p-6 shadow-soft space-y-5">
           <h2 className="text-sm font-bold text-primary uppercase tracking-wider flex items-center gap-2">
@@ -167,11 +188,11 @@ const MoratoriumCalculator = ({ onBack }) => {
           
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <label className="text-sm font-semibold text-gray-600">Loan Amount</label>
+              <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3]">Loan Amount</label>
               <div className="text-primary font-bold">₹ {formatNumericInput(formData.amount)}</div>
             </div>
             <div className="relative group">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 font-bold">₹</span>
               <input
                 type="text"
                 inputMode="decimal"
@@ -185,7 +206,7 @@ const MoratoriumCalculator = ({ onBack }) => {
               min="100000"
               max="10000000"
               step="50000"
-              className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
+              className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
               value={formData.amount}
               onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
             />
@@ -193,7 +214,7 @@ const MoratoriumCalculator = ({ onBack }) => {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-3">
-              <label className="text-sm font-semibold text-gray-600 px-1">Interest %</label>
+              <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3] px-1">Interest %</label>
               <div className="relative">
                 <input
                   type="text"
@@ -207,24 +228,24 @@ const MoratoriumCalculator = ({ onBack }) => {
                     }
                   }}
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">%</span>
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 font-bold">%</span>
               </div>
             </div>
             <div className="space-y-3">
-              <label className="text-sm font-semibold text-gray-600 px-1">Rate Type</label>
-              <div className="flex bg-gray-100 p-1 rounded-2xl h-[56px]">
+              <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3] px-1">Rate Type</label>
+              <div className="flex bg-gray-100 dark:bg-gray-800/80 p-1 rounded-2xl h-[56px] border border-slate-200 dark:border-slate-700/60">
                 <button
                   onClick={() => setFormData({ ...formData, interestType: 'reducing' })}
-                  className={`flex-1 rounded-xl text-xs font-bold transition-all ${
-                    formData.interestType === 'reducing' ? 'bg-white shadow-sm text-primary' : 'text-gray-500'
+                  className={`flex-1 rounded-xl text-[12px] font-bold transition-all ${
+                    formData.interestType === 'reducing' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary dark:text-blue-400' : 'text-slate-600 dark:text-slate-300 font-semibold'
                   }`}
                 >
                   Reducing
                 </button>
                 <button
                   onClick={() => setFormData({ ...formData, interestType: 'flat' })}
-                  className={`flex-1 rounded-xl text-xs font-bold transition-all ${
-                    formData.interestType === 'flat' ? 'bg-white shadow-sm text-primary' : 'text-gray-500'
+                  className={`flex-1 rounded-xl text-[12px] font-bold transition-all ${
+                    formData.interestType === 'flat' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary dark:text-blue-400' : 'text-slate-600 dark:text-slate-300 font-semibold'
                   }`}
                 >
                   Flat
@@ -235,8 +256,8 @@ const MoratoriumCalculator = ({ onBack }) => {
 
           <div className="space-y-3">
             <div className="flex justify-between items-center px-1">
-              <label className="text-sm font-semibold text-gray-600">Period</label>
-              <div className="flex bg-gray-100 p-1 rounded-xl">
+              <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3]">Period</label>
+              <div className="flex bg-gray-100 dark:bg-gray-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60">
                 <button
                   onClick={() => {
                     if (formData.isMonths) {
@@ -248,8 +269,8 @@ const MoratoriumCalculator = ({ onBack }) => {
                       });
                     }
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                    !formData.isMonths ? 'bg-white shadow-sm text-primary' : 'text-gray-500'
+                  className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${
+                    !formData.isMonths ? 'bg-white dark:bg-gray-700 shadow-sm text-primary dark:text-blue-400 font-bold' : 'text-slate-600 dark:text-slate-300'
                   }`}
                 >
                   Years
@@ -265,8 +286,8 @@ const MoratoriumCalculator = ({ onBack }) => {
                       });
                     }
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                    formData.isMonths ? 'bg-white shadow-sm text-primary' : 'text-gray-500'
+                  className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${
+                    formData.isMonths ? 'bg-white dark:bg-gray-700 shadow-sm text-primary dark:text-blue-400 font-bold' : 'text-slate-600 dark:text-slate-300'
                   }`}
                 >
                   Months
@@ -285,7 +306,7 @@ const MoratoriumCalculator = ({ onBack }) => {
               min="1"
               max={formData.isMonths ? "960" : "80"}
               step="1"
-              className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
+              className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
               value={formData.period}
               onChange={(e) => setFormData({ ...formData, period: e.target.value })}
             />
@@ -300,7 +321,7 @@ const MoratoriumCalculator = ({ onBack }) => {
           </h2>
 
           <div className="space-y-3">
-            <label className="text-sm font-semibold text-gray-600">Moratorium Type</label>
+            <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3]">Moratorium Type</label>
             <div className="space-y-2">
               {[
                 { id: 'full', label: 'Full Moratorium', sub: 'No Payment' },
@@ -312,18 +333,18 @@ const MoratoriumCalculator = ({ onBack }) => {
                   onClick={() => setFormData({ ...formData, moratoriumType: type.id })}
                   className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${
                     formData.moratoriumType === type.id 
-                    ? 'border-primary bg-blue-50/50' 
-                    : 'border-gray-100 bg-white'
+                    ? 'border-primary bg-blue-50/50 dark:bg-blue-950/20' 
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-gray-800/50'
                   }`}
                 >
                   <div className="text-left">
-                    <div className={`font-bold ${formData.moratoriumType === type.id ? 'text-primary' : 'text-gray-700'}`}>
+                    <div className={`font-bold ${formData.moratoriumType === type.id ? 'text-primary dark:text-blue-400' : 'text-slate-800 dark:text-slate-100'}`}>
                       {type.label}
                     </div>
-                    <div className="text-[10px] text-gray-500">{type.sub}</div>
+                    <div className={`text-[11px] ${formData.moratoriumType === type.id ? 'text-blue-600/80 dark:text-blue-300/80' : 'text-slate-500 dark:text-slate-400'}`}>{type.sub}</div>
                   </div>
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                    formData.moratoriumType === type.id ? 'border-primary bg-primary' : 'border-gray-300'
+                    formData.moratoriumType === type.id ? 'border-primary bg-primary' : 'border-slate-300 dark:border-slate-600'
                   }`}>
                     {formData.moratoriumType === type.id && <div className="w-2 h-2 bg-white rounded-full" />}
                   </div>
@@ -340,9 +361,9 @@ const MoratoriumCalculator = ({ onBack }) => {
                 exit={{ height: 0, opacity: 0 }}
                 className="overflow-hidden space-y-2"
               >
-                <label className="text-sm font-semibold text-gray-600 px-1">Partial Amount</label>
+                <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3] px-1">Partial Amount</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 font-bold">₹</span>
                   <input
                     type="text"
                     inputMode="decimal"
@@ -357,9 +378,9 @@ const MoratoriumCalculator = ({ onBack }) => {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-3">
-              <label className="text-sm font-semibold text-gray-600 px-1">Moratorium Start</label>
+              <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3] px-1">Moratorium Start</label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">After</span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 text-xs font-bold">After</span>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -367,11 +388,11 @@ const MoratoriumCalculator = ({ onBack }) => {
                   value={formData.moratoriumStart}
                   onChange={(e) => setFormData({ ...formData, moratoriumStart: e.target.value })}
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">Months</span>
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 text-xs font-bold">Months</span>
               </div>
             </div>
             <div className="space-y-3">
-              <label className="text-sm font-semibold text-gray-600 px-1">Duration</label>
+              <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3] px-1">Duration</label>
               <div className="relative">
                 <input
                   type="text"
@@ -380,7 +401,7 @@ const MoratoriumCalculator = ({ onBack }) => {
                   value={formData.moratoriumDuration}
                   onChange={(e) => setFormData({ ...formData, moratoriumDuration: e.target.value })}
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">Months</span>
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 text-xs font-bold">Months</span>
               </div>
             </div>
           </div>
@@ -389,7 +410,7 @@ const MoratoriumCalculator = ({ onBack }) => {
             min="0"
             max="24"
             step="1"
-            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-500"
+            className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
             value={formData.moratoriumDuration}
             onChange={(e) => setFormData({ ...formData, moratoriumDuration: e.target.value })}
           />
@@ -412,14 +433,14 @@ const MoratoriumCalculator = ({ onBack }) => {
                 onClick={() => setFormData({ ...formData, adjustmentOption: opt.id })}
                 className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all ${
                   formData.adjustmentOption === opt.id 
-                  ? 'border-primary bg-blue-50/50' 
-                  : 'border-gray-100 bg-white'
+                  ? 'border-primary bg-blue-50/50 dark:bg-blue-950/20' 
+                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-gray-800/50'
                 }`}
               >
-                <div className={`font-bold text-sm ${formData.adjustmentOption === opt.id ? 'text-primary' : 'text-gray-700'}`}>
+                <div className={`font-bold text-[13px] ${formData.adjustmentOption === opt.id ? 'text-primary dark:text-blue-400' : 'text-slate-800 dark:text-slate-100'}`}>
                   {opt.label}
                 </div>
-                <div className="text-[10px] text-gray-500">{opt.sub}</div>
+                <div className={`text-[11px] ${formData.adjustmentOption === opt.id ? 'text-blue-600/80 dark:text-blue-300/80' : 'text-slate-500 dark:text-slate-400'}`}>{opt.sub}</div>
               </button>
             ))}
           </div>
@@ -535,6 +556,7 @@ const MoratoriumCalculator = ({ onBack }) => {
             </motion.section>
           )}
         </AnimatePresence>
+        </div>
       </div>
     </div>
   );

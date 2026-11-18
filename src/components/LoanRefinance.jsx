@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { ArrowLeft, RefreshCw, RotateCcw, Share2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { ChevronLeft, RefreshCw, RotateCcw, Share2, Sparkles, TrendingDown, Clock, AlertCircle } from 'lucide-react';
 import { shareAsText } from '../utils/exportUtils';
 import { formatNumericInput, parseFormattedNumber } from '../utils/calculatorLogic';
+import { useSettings } from '../context/SettingsContext';
+import BackButton from './BackButton';
 
 const fmt = (val) =>
   Number(val).toLocaleString('en-IN', { maximumFractionDigits: 0 });
@@ -17,18 +18,18 @@ const calcEMI = (principal, ratePercent, months) => {
 // ---------- Reusable input row ----------
 const InputRow = ({ label, prefix, value, onChange, placeholder = '0', type = 'number', children }) => (
   <div className="flex items-center justify-between gap-3 py-3 border-b border-gray-100 dark:border-gray-800 last:border-0">
-    <span className="text-[13px] font-semibold text-gray-600 dark:text-gray-300 flex-shrink-0 w-[44%] leading-tight">
+    <span className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 flex-shrink-0 w-[44%] leading-[1.3]">
       {label}
     </span>
     <div className="flex items-center gap-2 flex-1 justify-end">
-      <div className="flex items-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-3 py-2 shadow-sm focus-within:border-blue-400 transition-colors min-w-0">
-        {prefix && <span className="text-gray-400 dark:text-gray-500 text-sm font-bold mr-1">{prefix}</span>}
+      <div className="flex items-center bg-[#F8FAFC] dark:bg-gray-800 border border-[#CBD5E1] dark:border-slate-700 rounded-2xl px-3 py-2 shadow-sm focus-within:border-blue-500 transition-colors min-w-0">
+        {prefix && <span className="text-slate-400 dark:text-slate-400 text-sm font-bold mr-1">{prefix}</span>}
         <input
           type={type}
           value={value}
           onChange={onChange}
           placeholder={placeholder}
-          className="w-full text-right text-[13px] font-bold text-gray-900 dark:text-white outline-none bg-transparent min-w-0"
+          className="w-full text-right text-[13.5px] font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none bg-transparent min-w-0"
           inputMode="decimal"
         />
       </div>
@@ -39,13 +40,13 @@ const InputRow = ({ label, prefix, value, onChange, placeholder = '0', type = 'n
 
 // ---------- Period toggle ----------
 const PeriodToggle = ({ mode, setMode }) => (
-  <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-0.5 text-[10px] font-black flex-shrink-0">
+  <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700/60 text-[12px] font-semibold flex-shrink-0">
     {['Yrs', 'Mos'].map((t) => (
       <button
         key={t}
         onClick={() => setMode(t)}
         className={`px-2.5 py-1.5 rounded-[10px] transition-all ${
-          mode === t ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 dark:text-gray-450'
+          mode === t ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 dark:text-slate-300'
         }`}
       >
         {t}
@@ -56,13 +57,13 @@ const PeriodToggle = ({ mode, setMode }) => (
 
 // ---------- Fee toggle ----------
 const FeeToggle = ({ mode, setMode }) => (
-  <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-0.5 text-[10px] font-black flex-shrink-0">
+  <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700/60 text-[12px] font-semibold flex-shrink-0">
     {['%', '₹'].map((t) => (
       <button
         key={t}
         onClick={() => setMode(t)}
         className={`px-2.5 py-1.5 rounded-[10px] transition-all ${
-          mode === t ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 dark:text-gray-450'
+          mode === t ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 dark:text-slate-300'
         }`}
       >
         {t}
@@ -97,22 +98,59 @@ const ResultRow = ({ label, value, highlight, greenValue, subLabel }) => (
 );
 
 export default function LoanRefinance({ onBack }) {
-  // --- Existing loan ---
+  const { theme } = useSettings();
+  const scrollRef = useRef(null);
+  const summaryRef = useRef(null);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  // --- Input states: empty strings with subtle placeholders ---
   const [oldPrincipal, setOldPrincipal] = useState('');
   const [oldRate, setOldRate] = useState('');
   const [oldPeriod, setOldPeriod] = useState('');
   const [oldPeriodMode, setOldPeriodMode] = useState('Yrs');
 
-  // --- New loan ---
   const [newRate, setNewRate] = useState('');
   const [newPeriod, setNewPeriod] = useState('');
   const [newPeriodMode, setNewPeriodMode] = useState('Yrs');
   const [feeValue, setFeeValue] = useState('');
   const [feeMode, setFeeMode] = useState('%');
 
-  const [results, setResults] = useState(null);
+  // Explicit calculation & validation states
+  const [hasCalculated, setHasCalculated] = useState(false);
+  const [validationError, setValidationError] = useState('');
+
+  const invalidateCalculation = () => {
+    if (hasCalculated) setHasCalculated(false);
+    if (validationError) setValidationError('');
+  };
+
+  // Passive RAF-throttled scroll listener toggling isScrolled at scrollTop > 24px
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const scrolled = el.scrollTop > 24;
+          setIsScrolled(scrolled);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    if (el.scrollTop > 24) setIsScrolled(true);
+
+    return () => {
+      el.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
 
   const handleAmountChange = (val, setter) => {
+    invalidateCalculation();
     const clean = val.replace(/,/g, '');
     if (clean !== '' && !/^\d*\.?\d*$/.test(clean)) {
       return;
@@ -126,6 +164,7 @@ export default function LoanRefinance({ onBack }) {
   };
 
   const handleRateChange = (val, setter) => {
+    invalidateCalculation();
     if (val === '') {
       setter('');
       return;
@@ -138,9 +177,17 @@ export default function LoanRefinance({ onBack }) {
     }
   };
 
+  const handlePeriodChange = (val, setter) => {
+    invalidateCalculation();
+    if (val === '' || /^\d*$/.test(val)) {
+      setter(val);
+    }
+  };
+
   const handleOldPeriodModeChange = (newMode) => {
     if (oldPeriodMode === newMode) return;
     setOldPeriodMode(newMode);
+    invalidateCalculation();
     if (!oldPeriod) return;
     const val = parseFloat(oldPeriod);
     if (isNaN(val)) return;
@@ -157,6 +204,7 @@ export default function LoanRefinance({ onBack }) {
   const handleNewPeriodModeChange = (newMode) => {
     if (newPeriodMode === newMode) return;
     setNewPeriodMode(newMode);
+    invalidateCalculation();
     if (!newPeriod) return;
     const val = parseFloat(newPeriod);
     if (isNaN(val)) return;
@@ -170,19 +218,39 @@ export default function LoanRefinance({ onBack }) {
     }
   };
 
-  const reset = () => {
-    setOldPrincipal(''); setOldRate(''); setOldPeriod('');
-    setNewRate(''); setNewPeriod(''); setFeeValue('');
-    setOldPeriodMode('Yrs'); setNewPeriodMode('Yrs'); setFeeMode('%');
-    setResults(null);
+  const handleFeeModeChange = (newMode) => {
+    if (feeMode === newMode) return;
+    setFeeMode(newMode);
+    invalidateCalculation();
   };
 
-  const calculate = () => {
+  const handleReset = () => {
+    setOldPrincipal('');
+    setOldRate('');
+    setOldPeriod('');
+    setOldPeriodMode('Yrs');
+    setNewRate('');
+    setNewPeriod('');
+    setNewPeriodMode('Yrs');
+    setFeeValue('');
+    setFeeMode('%');
+    setHasCalculated(false);
+    setValidationError('');
+  };
+
+  // Calculations only when hasCalculated is true
+  const results = useMemo(() => {
+    if (!hasCalculated) return null;
+
     const P = parseFloat(oldPrincipal) || 0;
     const oldR = parseFloat(oldRate) || 0;
     const newR = parseFloat(newRate) || 0;
     const oldMos = oldPeriodMode === 'Yrs' ? (parseFloat(oldPeriod) || 0) * 12 : (parseFloat(oldPeriod) || 0);
     const newMos = newPeriodMode === 'Yrs' ? (parseFloat(newPeriod) || 0) * 12 : (parseFloat(newPeriod) || 0);
+
+    if (P <= 0 || oldR < 0 || newR < 0 || oldMos <= 0 || newMos <= 0) {
+      return null;
+    }
 
     const oldEMI = calcEMI(P, oldR, oldMos);
     const newEMI = calcEMI(P, newR, newMos);
@@ -195,188 +263,341 @@ export default function LoanRefinance({ onBack }) {
     const processingFees = feeMode === '%' ? (P * rawFee) / 100 : rawFee;
     const netSaving = totalSaving - processingFees;
 
-    setResults({
-      oldEMI, newEMI, savingEMI,
-      totalOldInterest, totalNewInterest,
-      totalSaving, processingFees, netSaving,
-    });
+    let breakEvenMonths = null;
+    if (processingFees <= 0) {
+      breakEvenMonths = 0;
+    } else if (savingEMI > 0) {
+      breakEvenMonths = Math.ceil(processingFees / savingEMI);
+    }
+
+    return {
+      P,
+      oldEMI,
+      newEMI,
+      savingEMI,
+      totalOldInterest,
+      totalNewInterest,
+      totalSaving,
+      processingFees,
+      netSaving,
+      breakEvenMonths,
+    };
+  }, [hasCalculated, oldPrincipal, oldRate, oldPeriod, oldPeriodMode, newRate, newPeriod, newPeriodMode, feeValue, feeMode]);
+
+  const handleCalculate = () => {
+    const P = parseFloat(oldPrincipal) || 0;
+    const oldR = parseFloat(oldRate);
+    const oldP = parseFloat(oldPeriod) || 0;
+    const newR = parseFloat(newRate);
+    const newP = parseFloat(newPeriod) || 0;
+
+    if (P <= 0) {
+      setValidationError('Please enter a valid Principal Outstanding amount.');
+      return;
+    }
+    if (isNaN(oldR) || oldR < 0) {
+      setValidationError('Please enter a valid Existing Interest Rate.');
+      return;
+    }
+    if (oldP <= 0) {
+      setValidationError('Please enter a valid Existing Loan Period.');
+      return;
+    }
+    if (isNaN(newR) || newR < 0) {
+      setValidationError('Please enter a valid Proposed Interest Rate.');
+      return;
+    }
+    if (newP <= 0) {
+      setValidationError('Please enter a valid Proposed Loan Period.');
+      return;
+    }
+
+    setValidationError('');
+    setHasCalculated(true);
+    setTimeout(() => {
+      if (summaryRef.current) {
+        summaryRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 60);
   };
 
   const handleShare = () => {
     if (!results) return;
     const text =
-      `🏦 Loan Refinance Analysis\n` +
+      `🏦 Loan Refinance Analysis (EMI Pro)\n` +
       `──────────────────────────\n` +
-      `Existing EMI       : ₹${fmt(results.oldEMI)}\n` +
-      `Proposed EMI       : ₹${fmt(results.newEMI)}\n` +
-      `Saving in EMI      : ₹${fmt(Math.abs(results.savingEMI))}${results.savingEMI < 0 ? ' (Increase)' : ''}\n` +
-      `Total Old Interest : ₹${fmt(results.totalOldInterest)}\n` +
-      `Total New Interest : ₹${fmt(results.totalNewInterest)}\n` +
-      `Saving in Outflow  : ₹${fmt(results.totalSaving)}\n` +
-      `Processing Fees    : ₹${fmt(results.processingFees)}\n` +
-      `Net Saving         : ₹${fmt(results.netSaving)}\n` +
+      `Principal          : ₹${fmt(results.P)}\n` +
+      `Existing EMI       : ₹${fmt(results.oldEMI)}/mo\n` +
+      `Proposed EMI       : ₹${fmt(results.newEMI)}/mo\n` +
+      `Monthly EMI Cut    : ₹${fmt(Math.abs(results.savingEMI))}${results.savingEMI < 0 ? ' (Increase)' : '/mo'}\n` +
+      `Old Total Interest : ₹${fmt(results.totalOldInterest)}\n` +
+      `New Total Interest : ₹${fmt(results.totalNewInterest)}\n` +
+      `Interest Saved     : ₹${fmt(results.totalOldInterest - results.totalNewInterest)}\n` +
+      `Processing Fee     : ₹${fmt(results.processingFees)}\n` +
+      `Net Total Savings  : ₹${fmt(results.netSaving)}\n` +
+      `Break-Even Period  : ${results.breakEvenMonths !== null ? (results.breakEvenMonths === 0 ? 'Immediate' : `${results.breakEvenMonths} Mos`) : 'N/A'}\n` +
       `──────────────────────────\n` +
       `Calculated with EMI Pro`;
     shareAsText('Loan Refinance Analysis', text);
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-gray-50/50 dark:bg-gray-900 transition-colors duration-300">
-      {/* Header */}
-      <header className="px-5 pt-14 pb-4 flex items-center gap-3 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 flex-shrink-0 transition-colors duration-300">
-        <button
-          onClick={onBack}
-          className="p-2.5 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-700 dark:text-gray-200 active:scale-90 transition-all animate-fade-in"
+    <div className="flex-1 flex flex-col overflow-hidden bg-gray-50/50 dark:bg-gray-900 relative h-full">
+      {/* 1. Pinned Collapsible Top Header */}
+      <header
+        className="fixed top-0 left-0 right-0 z-40"
+        style={{
+          paddingTop: isScrolled
+            ? 'calc(var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) + 6px)'
+            : 'calc(var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) + 10px)',
+          paddingBottom: isScrolled ? '8px' : '12px',
+          paddingLeft: '16px',
+          paddingRight: '16px',
+          background: theme === 'dark' 
+            ? 'linear-gradient(180deg, #172554 0%, #1E293B 100%)' 
+            : 'linear-gradient(180deg, #DBEAFE 0%, #E0EFFE 100%)',
+          borderBottom: theme === 'dark' 
+            ? '1px solid rgba(96, 165, 250, 0.18)' 
+            : '1px solid rgba(37, 99, 235, 0.18)',
+          boxShadow: isScrolled
+            ? (theme === 'dark' ? '0 4px 20px -2px rgba(0, 0, 0, 0.4)' : '0 4px 16px -2px rgba(15, 23, 42, 0.05)')
+            : 'none',
+          transition: 'all 0.2s cubic-bezier(0.22, 1, 0.36, 1)'
+        }}
+      >
+        <div
+          className="max-w-md mx-auto flex items-center justify-between"
+          style={{
+            minHeight: isScrolled ? '34px' : '44px',
+            transition: 'min-height 0.2s cubic-bezier(0.22, 1, 0.36, 1)'
+          }}
         >
-          <ArrowLeft size={20} />
-        </button>
-        <div className="flex-1">
-          <h1 className="text-[17px] font-black text-gray-900 dark:text-white leading-tight">Loan Refinance</h1>
-          <p className="text-[10px] text-gray-400 dark:text-gray-550 font-semibold mt-0.5">Compare old & new loan terms</p>
-        </div>
-        <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center text-blue-600 dark:text-blue-400">
-          <RefreshCw size={20} strokeWidth={2.5} />
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <BackButton
+              onClick={onBack}
+              variant="soft-blue"
+            />
+            <div className="flex-1 min-w-0 flex flex-col justify-center">
+              <h1
+                className={`font-bold text-[#0F172A] dark:text-[#F8FAFC] transition-all duration-200 leading-[1.2] ${
+                  isScrolled ? 'text-[15px]' : 'text-[18px]'
+                }`}
+              >
+                Loan Refinance
+              </h1>
+              <div
+                className={`text-[11px] font-medium text-slate-600 dark:text-slate-300 transition-all duration-200 overflow-hidden leading-tight ${
+                  isScrolled ? 'opacity-0 max-h-0 mt-0 pointer-events-none' : 'opacity-100 max-h-[18px] mt-0.5'
+                }`}
+              >
+                Compare old &amp; new loan terms
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+            <button
+              type="button"
+              onClick={handleShare}
+              aria-label="Share Calculation"
+              title="Share"
+              className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center"
+            >
+              <Share2 size={20} strokeWidth={2} />
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto no-scrollbar px-5 pt-5 pb-28">
-
-        {/* Section 1 */}
-        <div className="bg-white dark:bg-gray-800/40 rounded-[1.75rem] border border-gray-100 dark:border-gray-800 shadow-sm mb-4 overflow-hidden transition-colors duration-300">
-          <div className="px-5 pt-5 pb-1">
-            <h2 className="text-[13px] font-black text-gray-850 dark:text-white uppercase tracking-wider mb-1">
-              🏛️ Existing Loan
-            </h2>
+      {/* Main Scroll Container with Top and Bottom Clearance */}
+      <div 
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto no-scrollbar"
+        style={{
+          paddingTop: 'calc(var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) + 72px)',
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 92px)',
+          paddingLeft: '16px',
+          paddingRight: '16px'
+        }}
+      >
+        <div className="max-w-md mx-auto space-y-3.5">
+          {/* Section 1: Existing Loan */}
+          <div className="bg-white dark:bg-gray-800/40 rounded-[1.75rem] border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden transition-colors duration-300">
+            <div className="px-5 pt-4 pb-1">
+              <h2 className="text-[13px] font-black text-gray-850 dark:text-white uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                🏛️ Existing Loan
+              </h2>
+            </div>
+            <div className="px-5 pb-3">
+              <InputRow
+                label="Principal Outstanding"
+                prefix="₹"
+                type="text"
+                value={formatNumericInput(oldPrincipal)}
+                onChange={(e) => handleAmountChange(e.target.value, setOldPrincipal)}
+                placeholder="e.g. 5,00,000"
+              />
+              <InputRow
+                label="Interest %"
+                type="number"
+                value={oldRate}
+                onChange={(e) => handleRateChange(e.target.value, setOldRate)}
+                placeholder="e.g. 10.5"
+              />
+              <InputRow
+                label="Period"
+                value={oldPeriod}
+                onChange={(e) => handlePeriodChange(e.target.value, setOldPeriod)}
+                placeholder={oldPeriodMode === 'Yrs' ? 'e.g. 10' : 'e.g. 120'}
+              >
+                <PeriodToggle mode={oldPeriodMode} setMode={handleOldPeriodModeChange} />
+              </InputRow>
+            </div>
           </div>
-          <div className="px-5 pb-3">
-            <InputRow
-              label="Principal Outstanding"
-              prefix="₹"
-              type="text"
-              value={formatNumericInput(oldPrincipal)}
-              onChange={(e) => handleAmountChange(e.target.value, setOldPrincipal)}
-              placeholder="5,00,000"
-            />
-            <InputRow
-              label="Interest %"
-              type="number"
-              value={oldRate}
-              onChange={(e) => handleRateChange(e.target.value, setOldRate)}
-              placeholder="10.5"
-            />
-            <InputRow
-              label="Period"
-              value={oldPeriod}
-              onChange={(e) => setOldPeriod(e.target.value)}
-              placeholder={oldPeriodMode === 'Yrs' ? '10' : '120'}
-            >
-              <PeriodToggle mode={oldPeriodMode} setMode={handleOldPeriodModeChange} />
-            </InputRow>
-          </div>
-        </div>
 
-        {/* Section 2 */}
-        <div className="bg-white dark:bg-gray-800/40 rounded-[1.75rem] border border-gray-100 dark:border-gray-800 shadow-sm mb-5 overflow-hidden transition-colors duration-300">
-          <div className="px-5 pt-5 pb-1">
-            <h2 className="text-[13px] font-black text-gray-850 dark:text-white uppercase tracking-wider mb-1">
-              🆕 New Loan
-            </h2>
-          </div>
-          <div className="px-5 pb-3">
-            <InputRow
-              label="Interest %"
-              type="number"
-              value={newRate}
-              onChange={(e) => handleRateChange(e.target.value, setNewRate)}
-              placeholder="8.5"
-            />
-            <InputRow
-              label="Period"
-              value={newPeriod}
-              onChange={(e) => setNewPeriod(e.target.value)}
-              placeholder={newPeriodMode === 'Yrs' ? '10' : '120'}
-            >
-              <PeriodToggle mode={newPeriodMode} setMode={handleNewPeriodModeChange} />
-            </InputRow>
-            <InputRow
-              label="Processing Fees"
-              type={feeMode === '₹' ? 'text' : 'number'}
-              value={feeMode === '₹' ? formatNumericInput(feeValue) : feeValue}
-              onChange={(e) => {
-                if (feeMode === '₹') {
-                  handleAmountChange(e.target.value, setFeeValue);
-                } else {
-                  setFeeValue(e.target.value);
-                }
-              }}
-              placeholder={feeMode === '%' ? '1' : '5,000'}
-            >
-              <FeeToggle mode={feeMode} setMode={setFeeMode} />
-            </InputRow>
-          </div>
-        </div>
+          {/* Section 2: New Loan & Action Buttons */}
+          <div className="bg-white dark:bg-gray-800/40 rounded-[1.75rem] border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden transition-colors duration-300">
+            <div className="px-5 pt-4 pb-1">
+              <h2 className="text-[13px] font-black text-gray-850 dark:text-white uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                🆕 New Loan
+              </h2>
+            </div>
+            <div className="px-5 pb-4">
+              <InputRow
+                label="Interest %"
+                type="number"
+                value={newRate}
+                onChange={(e) => handleRateChange(e.target.value, setNewRate)}
+                placeholder="e.g. 8.5"
+              />
+              <InputRow
+                label="Period"
+                value={newPeriod}
+                onChange={(e) => handlePeriodChange(e.target.value, setNewPeriod)}
+                placeholder={newPeriodMode === 'Yrs' ? 'e.g. 10' : 'e.g. 120'}
+              >
+                <PeriodToggle mode={newPeriodMode} setMode={handleNewPeriodModeChange} />
+              </InputRow>
+              <InputRow
+                label="Processing Fees"
+                type={feeMode === '₹' ? 'text' : 'number'}
+                value={feeMode === '₹' ? formatNumericInput(feeValue) : feeValue}
+                onChange={(e) => {
+                  if (feeMode === '₹') {
+                    handleAmountChange(e.target.value, setFeeValue);
+                  } else {
+                    invalidateCalculation();
+                    setFeeValue(e.target.value);
+                  }
+                }}
+                placeholder={feeMode === '%' ? 'e.g. 1' : 'e.g. 5,000'}
+              >
+                <FeeToggle mode={feeMode} setMode={handleFeeModeChange} />
+              </InputRow>
 
-        {/* Action buttons */}
-        <div className="flex gap-3 mb-5">
-          <button
-            onClick={reset}
-            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-[13px] font-black active:scale-95 transition-all shadow-sm"
-          >
-            <RotateCcw size={15} /> Reset
-          </button>
-          <button
-            onClick={calculate}
-            className="flex-[2] flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-blue-600 text-white text-[13px] font-black shadow-lg shadow-blue-200 dark:shadow-none active:scale-95 transition-all"
-          >
-            <RefreshCw size={15} /> Calculate
-          </button>
-        </div>
+              {/* Action buttons inside input card */}
+              <div className="pt-3.5 mt-1 border-t border-gray-100 dark:border-gray-800 flex gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-slate-700 dark:text-slate-200 text-[13px] font-bold active:scale-95 transition-all shadow-sm"
+                >
+                  <RotateCcw size={15} /> Reset
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCalculate}
+                  className="flex-[2] flex items-center justify-center gap-2 py-3 rounded-2xl bg-blue-600 text-white text-[13px] font-bold shadow-md shadow-blue-500/20 active:scale-95 transition-all"
+                >
+                  <RefreshCw size={15} /> Calculate
+                </button>
+              </div>
 
-        {/* Results */}
-        <AnimatePresence>
-          {results && (
-            <motion.div
-              key="results"
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 24 }}
-              transition={{ duration: 0.35, ease: 'easeOut' }}
-            >
-              {/* Summary highlight card */}
-              <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-[1.75rem] p-5 mb-4 shadow-lg shadow-blue-200 dark:shadow-none">
-                <p className="text-[10px] font-black text-blue-200 uppercase tracking-widest mb-3">
-                  Refinance Summary
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-white/15 rounded-2xl p-3.5">
-                    <span className="block text-[9px] font-black text-blue-200 uppercase tracking-wider mb-1">
-                      Total Saving in Outflow
+              {/* Subtle validation message */}
+              {validationError && (
+                <div className="mt-3 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle size={15} className="shrink-0" />
+                  <span>{validationError}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 2. Refinance Summary Card (Only rendered when hasCalculated && results) */}
+          {hasCalculated && results && (
+            <div ref={summaryRef} className="space-y-3.5">
+              <div className="bg-gradient-to-br from-[#1E293B] via-[#0F172A] to-[#020617] text-white rounded-[1.75rem] p-5 shadow-xl border border-slate-800 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-44 h-44 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+                
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-bold text-blue-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <Sparkles size={13} className="text-blue-400" />
+                      Refinance Savings Summary
                     </span>
-                    <span className={`text-[17px] font-black ${results.totalSaving >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
-                      ₹{fmt(Math.abs(results.totalSaving))}
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
+                      results.netSaving >= 0 
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' 
+                        : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                    }`}>
+                      {results.netSaving >= 0 ? 'Profitable Switch' : 'Higher Cost'}
                     </span>
-                    {results.totalSaving < 0 && (
-                      <span className="block text-[9px] text-red-300 font-bold mt-0.5">Extra Outflow</span>
-                    )}
                   </div>
-                  <div className="bg-white/15 rounded-2xl p-3.5">
-                    <span className="block text-[9px] font-black text-blue-200 uppercase tracking-wider mb-1">
-                      Net Saving (After Fees)
+
+                  {/* Primary Metric: Net Total Savings */}
+                  <div className="mb-4">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Net Total Savings (After Fees)
                     </span>
-                    <span className={`text-[17px] font-black ${results.netSaving >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
-                      ₹{fmt(Math.abs(results.netSaving))}
-                    </span>
-                    {results.netSaving < 0 && (
-                      <span className="block text-[9px] text-red-300 font-bold mt-0.5">Net Loss</span>
-                    )}
+                    <div className="flex items-baseline gap-2 mt-0.5">
+                      <span className={`text-3xl font-black tracking-tight ${results.netSaving >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {results.netSaving < 0 ? '-' : ''}₹{fmt(Math.abs(results.netSaving))}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Metric Grid: Monthly EMI Reduction & Break-Even Months */}
+                  <div className="grid grid-cols-2 gap-3 p-3 rounded-2xl bg-white/5 border border-white/10 mb-4">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                        <TrendingDown size={11} className="text-blue-400" />
+                        Monthly EMI Cut
+                      </p>
+                      <p className={`text-base font-black mt-0.5 ${results.savingEMI >= 0 ? 'text-white' : 'text-rose-300'}`}>
+                        {results.savingEMI < 0 ? '-' : ''}₹{fmt(Math.abs(results.savingEMI))}
+                        <span className="text-[11px] font-medium text-slate-400">/mo</span>
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                        <Clock size={11} className="text-amber-400" />
+                        Break-Even Period
+                      </p>
+                      <p className="text-base font-black text-amber-300 mt-0.5">
+                        {results.breakEvenMonths !== null 
+                          ? (results.breakEvenMonths === 0 ? 'Immediate' : `${results.breakEvenMonths} Mos`)
+                          : 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Side-by-Side Comparison: Old vs. New Total Interest */}
+                  <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-800">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Old Total Interest</p>
+                      <p className="text-xs font-black text-slate-200 mt-0.5">₹{fmt(results.totalOldInterest)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">New Total Interest</p>
+                      <p className="text-xs font-black text-emerald-400 mt-0.5">₹{fmt(results.totalNewInterest)}</p>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Detail table */}
-              <div className="bg-white dark:bg-gray-800/40 rounded-[1.75rem] border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden mb-5 transition-colors duration-300">
-                <div className="px-4 pt-4 pb-1">
+              {/* Detailed Breakdown Card */}
+              <div className="bg-white dark:bg-gray-800/40 rounded-[1.75rem] border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden transition-colors duration-300">
+                <div className="px-5 pt-4 pb-1">
                   <h3 className="text-[11px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                     Detailed Breakdown
                   </h3>
@@ -396,18 +617,18 @@ export default function LoanRefinance({ onBack }) {
                 />
                 <ResultRow
                   label="Existing EMI"
-                  value={`₹${fmt(results.oldEMI)}`}
+                  value={`₹${fmt(results.oldEMI)}/mo`}
                 />
                 <ResultRow
                   label="Proposed EMI"
-                  value={`₹${fmt(results.newEMI)}`}
+                  value={`₹${fmt(results.newEMI)}/mo`}
                 />
                 <ResultRow
                   label="Saving in EMI"
                   value={
                     results.savingEMI < 0
                       ? `▲ ₹${fmt(Math.abs(results.savingEMI))} (Increase)`
-                      : `▼ ₹${fmt(results.savingEMI)}`
+                      : `▼ ₹${fmt(results.savingEMI)}/mo`
                   }
                   greenValue={results.savingEMI > 0}
                 />
@@ -423,18 +644,24 @@ export default function LoanRefinance({ onBack }) {
                   label="Processing Fees"
                   value={`₹${fmt(results.processingFees)}`}
                 />
+                <ResultRow
+                  label="Break-Even Period"
+                  value={results.breakEvenMonths !== null ? (results.breakEvenMonths === 0 ? 'Immediate' : `${results.breakEvenMonths} Months`) : 'N/A'}
+                  highlight={results.breakEvenMonths !== null && results.breakEvenMonths <= 12}
+                />
               </div>
 
-              {/* Share button */}
+              {/* Share Results Button */}
               <button
+                type="button"
                 onClick={handleShare}
-                className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-blue-600 text-white text-[13px] font-black shadow-lg shadow-blue-200 dark:shadow-none active:scale-95 transition-all mb-2"
+                className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-blue-600 text-white text-[13px] font-black shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
               >
                 <Share2 size={16} /> Share Results
               </button>
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
+        </div>
       </div>
     </div>
   );

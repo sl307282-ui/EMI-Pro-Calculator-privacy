@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" style="background-color: #F8FAFC;">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -9,11 +9,113 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="manifest" href="/manifest.json" />
     <title>EMI Pro - Advanced Loan Calculator</title>
+    <script>
+      (function() {
+        try {
+          var theme = localStorage.getItem('theme');
+          if (!theme) {
+            var cap = localStorage.getItem('CapacitorStorage.app_theme');
+            if (cap) theme = cap;
+          }
+          var isDark = theme === 'dark' || (!theme && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          var bg = isDark ? '#0F172A' : '#F8FAFC';
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+          document.documentElement.style.backgroundColor = bg;
+          document.addEventListener('DOMContentLoaded', function() {
+            if (document.body) document.body.style.backgroundColor = bg;
+            var root = document.getElementById('root');
+            if (root) root.style.backgroundColor = bg;
+          });
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      html, body, #root {
+        background-color: #F8FAFC;
+        min-height: 100svh;
+        height: 100svh;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+      @media (prefers-color-scheme: dark) {
+        html:not(.light), html:not(.light) body, html:not(.light) #root {
+          background-color: #0F172A;
+        }
+      }
+      html.dark, html.dark body, html.dark #root {
+        background-color: #0F172A !important;
+      }
+      /* Lightweight App-Shell Skeleton */
+      .app-shell-skeleton {
+        display: flex;
+        flex-direction: column;
+        height: 100svh;
+        width: 100%;
+        background-color: #F8FAFC;
+        padding: calc(env(safe-area-inset-top, 24px) + 12px) 20px calc(env(safe-area-inset-bottom, 16px) + 16px) 20px;
+        box-sizing: border-box;
+      }
+      html.dark .app-shell-skeleton {
+        background-color: #0F172A;
+      }
+      .shell-header {
+        height: 48px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .shell-hero {
+        height: 140px;
+        border-radius: 28px;
+        background: rgba(37, 99, 235, 0.08);
+        margin-bottom: 20px;
+      }
+      html.dark .shell-hero {
+        background: rgba(255, 255, 255, 0.04);
+      }
+      .shell-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+        flex: 1;
+      }
+      .shell-tile {
+        height: 72px;
+        border-radius: 20px;
+        background: rgba(15, 23, 42, 0.04);
+      }
+      html.dark .shell-tile {
+        background: rgba(255, 255, 255, 0.03);
+      }
+    </style>
   </head>
-  <body>
-    <div id="root"></div>
-    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js" crossorigin="anonymous"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-remote-config-compat.js" crossorigin="anonymous"></script>
+  <body style="background-color: #F8FAFC;">
+    <div id="root" style="background-color: #F8FAFC;">
+      <div class="app-shell-skeleton" aria-hidden="true">
+        <div class="shell-header">
+          <div style="width: 38px; height: 38px; border-radius: 50%; background: rgba(15,23,42,0.06);"></div>
+          <div style="width: 110px; height: 20px; border-radius: 8px; background: rgba(15,23,42,0.06);"></div>
+          <div style="width: 38px; height: 38px; border-radius: 50%; background: rgba(15,23,42,0.06);"></div>
+        </div>
+        <div class="shell-hero"></div>
+        <div class="shell-grid">
+          <div class="shell-tile"></div>
+          <div class="shell-tile"></div>
+          <div class="shell-tile"></div>
+          <div class="shell-tile"></div>
+          <div class="shell-tile"></div>
+          <div class="shell-tile"></div>
+        </div>
+      </div>
+    </div>
+    <script defer src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/10.8.1/firebase-remote-config-compat.js"></script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

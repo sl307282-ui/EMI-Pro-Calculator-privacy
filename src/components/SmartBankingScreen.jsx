@@ -1,12 +1,29 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   ChevronLeft, History, Settings, ChevronRight, 
   Landmark, PiggyBank, ShieldCheck, Percent,
   Lock
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { useSettings } from '../context/SettingsContext';
 
 const SmartBankingScreen = ({ onBack, onNavigate }) => {
+  const { theme } = useSettings();
+  const { headerRef, handleScroll } = useHeaderScroll();
+
+  useEffect(() => {
+    const isDark = theme === 'dark';
+    try {
+      StatusBar.setStyle({ style: isDark ? Style.Dark : Style.Light });
+    } catch (err) {
+      console.warn('Capacitor StatusBar failed', err);
+    }
+  }, [theme]);
+
   const tools = [
     {
       id: 'fd',
@@ -45,20 +62,23 @@ const SmartBankingScreen = ({ onBack, onNavigate }) => {
 
   return (
     <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden h-full transition-colors duration-300">
-      {/* Header Bar */}
-      <header className="bg-indigo-600 dark:bg-indigo-900 px-6 pt-14 pb-6 flex justify-between items-center shadow-lg z-30 transition-colors duration-300">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="text-white active:scale-90 transition-transform">
-            <ChevronLeft size={24} />
-          </button>
-          <h1 className="text-xl font-bold text-white">Smart Banking Tools</h1>
-        </div>
-        <div className="w-6" /> {/* Placeholder to balance the layout if needed, or leave empty */}
-      </header>
+      {/* Main Body with Sticky AppHeader */}
+      <div 
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto no-scrollbar bg-gradient-to-b from-white to-blue-50/30 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 88px)'
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title="Smart Banking Tools"
+          onBack={onBack}
+          variant="soft-blue"
+        />
 
-      {/* Main Body */}
-      <div className="flex-1 overflow-y-auto no-scrollbar p-6 pb-36 space-y-4 bg-gradient-to-b from-white to-blue-50/30 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
-        {tools.map((tool, index) => (
+        <div className="p-6 space-y-4">
+          {tools.map((tool, index) => (
           <motion.button
             key={tool.id}
             initial={{ opacity: 0, x: -20 }}
@@ -101,6 +121,7 @@ const SmartBankingScreen = ({ onBack, onNavigate }) => {
            </p>
         </div>
       </div>
+    </div>
     </div>
   );
 };

@@ -3,10 +3,13 @@ import { ChevronLeft, Share2, RefreshCcw, Calculator, ArrowRight } from 'lucide-
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatCurrency, formatNumericInput, parseFormattedNumber } from '../utils/calculatorLogic';
 import { shareAsText } from '../utils/exportUtils';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 
 const InputRow = ({ label, field, placeholder, symbol, min, max, value, onChange, isNumeric = true }) => (
   <div className="flex items-center justify-between gap-4 mb-5">
-    <label className="text-sm font-semibold text-gray-600 dark:text-gray-300 flex-1">{label}</label>
+    <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 flex-1 leading-[1.3]">{label}</label>
     <div className="relative flex items-center flex-[1.5]">
       <input
         type="text"
@@ -14,14 +17,15 @@ const InputRow = ({ label, field, placeholder, symbol, min, max, value, onChange
         placeholder={placeholder}
         value={isNumeric ? formatNumericInput(value) : value}
         onChange={(e) => onChange(field, isNumeric ? parseFormattedNumber(e.target.value) : e.target.value)}
-        className="w-full bg-white dark:bg-gray-805 border-none rounded-xl px-4 py-3.5 shadow-sm text-sm font-bold text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-primary/50 transition-all text-right pr-10"
+        className="w-full bg-[#F8FAFC] dark:bg-gray-800 border border-[#CBD5E1] dark:border-slate-700 rounded-xl px-4 py-3.5 shadow-sm text-sm font-semibold text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-right pr-10"
       />
-      <span className="absolute right-4 text-[10px] font-bold text-gray-400 dark:text-gray-550 uppercase">{symbol}</span>
+      <span className="absolute right-4 text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">{symbol}</span>
     </div>
   </div>
 );
 
 const LoanEligibility = ({ onBack }) => {
+  const { headerRef, scrollRef, handleScroll } = useHeaderScroll();
   const [formData, setFormData] = useState({
     income: '',
     foir: '35',
@@ -101,18 +105,35 @@ const LoanEligibility = ({ onBack }) => {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-gradient-to-br from-blue-50 to-white dark:from-gray-900 dark:to-gray-950 transition-colors duration-300 overflow-hidden h-full">
-      {/* Header */}
-      <header className="px-6 pt-14 pb-4 flex items-center bg-transparent sticky top-0 z-20">
-        <button onClick={onBack} className="p-2 -ml-2 text-gray-600 dark:text-gray-200 active:scale-90 transition-transform">
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className="ml-4 text-xl font-bold text-gray-900 dark:text-white animate-fade-in">Loan Eligible Calculator</h1>
-      </header>
+    <div className="flex-1 flex flex-col bg-gradient-to-br from-blue-50 to-white dark:from-gray-900 dark:to-gray-950 overflow-hidden h-full relative">
+      <div 
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto no-scrollbar"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px)'
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title="Loan Eligibility"
+          onBack={onBack}
+          rightActions={
+            <button 
+              type="button"
+              onClick={handleShare}
+              aria-label="Share Calculation"
+              title="Share"
+              className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center"
+            >
+              <Share2 size={20} strokeWidth={2} />
+            </button>
+          }
+        />
 
-      <div className="flex-1 overflow-y-auto no-scrollbar px-6 py-6">
+        <div className="px-6 py-6">
         {/* Form Container */}
-        <div className="bg-white/40 dark:bg-gray-800/20 backdrop-blur-sm rounded-3xl p-2 mb-8 shadow-inner border border-white/50 dark:border-gray-800 transition-colors duration-300">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl p-2 mb-8 shadow-sm border border-gray-100 dark:border-gray-800">
           <div className="p-4">
             <InputRow label="Gross Monthly Income" field="income" placeholder="e.g. 50,000" symbol="₹" value={formData.income} onChange={handleInputChange} />
             <InputRow label="FOIR (Max. % Of Salary)" field="foir" placeholder="35" symbol="%" value={formData.foir} onChange={handleInputChange} />
@@ -130,10 +151,10 @@ const LoanEligibility = ({ onBack }) => {
                     placeholder="e.g. 20"
                     value={formatNumericInput(formData.period)}
                     onChange={(e) => handleInputChange('period', parseFormattedNumber(e.target.value))}
-                    className="w-full bg-white dark:bg-gray-855 border-none rounded-xl px-4 py-3.5 shadow-sm text-sm font-bold text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-primary/50 transition-all text-right pr-4"
+                    className="w-full bg-[#F8FAFC] dark:bg-gray-800 border border-[#CBD5E1] dark:border-slate-700 rounded-xl px-4 py-3.5 shadow-sm text-sm font-bold text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-primary/50 transition-all text-right pr-4"
                   />
                 </div>
-                <div className="bg-white dark:bg-gray-805 p-1 rounded-xl shadow-sm flex border border-transparent dark:border-gray-700">
+                <div className="bg-white dark:bg-gray-700 p-1 rounded-xl shadow-sm flex border border-gray-200 dark:border-gray-600">
                   <button 
                     onClick={() => {
                       if (formData.isMonths) {
@@ -190,7 +211,7 @@ const LoanEligibility = ({ onBack }) => {
               animate={{ opacity: 1, scale: 1 }}
               className="space-y-6"
             >
-              <div className="bg-white dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800 rounded-3xl overflow-hidden shadow-soft transition-colors duration-300">
+              <div className="bg-white dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800 rounded-3xl overflow-hidden shadow-soft">
                 <table className="w-full">
                   <tbody>
                     <tr className="border-b border-gray-50 dark:border-gray-850">
@@ -214,6 +235,7 @@ const LoanEligibility = ({ onBack }) => {
             </motion.div>
           )}
         </AnimatePresence>
+        </div>
       </div>
     </div>
   );

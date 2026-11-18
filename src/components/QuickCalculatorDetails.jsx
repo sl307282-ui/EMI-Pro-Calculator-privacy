@@ -6,8 +6,12 @@ import {
   formatCurrency 
 } from '../utils/calculatorLogic';
 import { shareAsText } from '../utils/exportUtils';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 
 const QuickCalculatorDetails = ({ data, onBack }) => {
+  const { headerRef, handleScroll } = useHeaderScroll();
   const [viewMode, setViewMode] = useState('year'); // 'year' or 'month'
 
   const normalizedData = useMemo(() => {
@@ -68,24 +72,31 @@ const QuickCalculatorDetails = ({ data, onBack }) => {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-white overflow-hidden h-full">
-      {/* Header */}
-      <header className="px-6 pt-14 pb-4 flex justify-between items-center bg-white border-b border-gray-50 sticky top-0 z-20">
-        <div className="flex items-center gap-4">
-            <button onClick={onBack} className="p-2 -ml-2 text-gray-600 active:scale-90 transition-transform">
-                <ChevronLeft size={24} />
+    <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 overflow-hidden h-full transition-colors duration-300 relative">
+      <div 
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto min-h-0 no-scrollbar"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px)'
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title="Details"
+          onBack={onBack}
+          rightActions={
+            <button 
+              type="button"
+              onClick={handleShare}
+              className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center"
+              title="Share"
+              aria-label="Share"
+            >
+              <Share2 size={20} strokeWidth={2} />
             </button>
-            <h1 className="text-xl font-bold text-gray-900">Details</h1>
-        </div>
-        <button 
-          onClick={handleShare}
-          className="p-2 text-gray-600 active:scale-90 transition-transform"
-        >
-          <Share2 size={20} />
-        </button>
-      </header>
+          }
+        />
 
-      <div className="flex-1 overflow-y-auto min-h-0 pb-10">
         {/* Summary Table */}
         <section className="px-6 py-6">
             <div className="border border-gray-100 rounded-3xl overflow-hidden shadow-sm">

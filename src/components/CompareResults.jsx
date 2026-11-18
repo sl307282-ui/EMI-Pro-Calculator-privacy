@@ -1,6 +1,10 @@
 import React from 'react';
-import { ChevronLeft, TrendingDown, TrendingUp, Minus, ArrowRightLeft } from 'lucide-react';
+import { ChevronLeft, TrendingDown, TrendingUp, Minus, ArrowRightLeft, Share2 } from 'lucide-react';
 import { formatCurrency } from '../utils/calculatorLogic';
+import { shareAsText } from '../utils/exportUtils';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 
 const StatRow = ({ label, value, accent }) => (
   <div className="flex justify-between items-center py-2 border-b border-gray-50 dark:border-gray-800 last:border-0">
@@ -10,6 +14,7 @@ const StatRow = ({ label, value, accent }) => (
 );
 
 const CompareResults = ({ loans, onBack, onCompareMore }) => {
+  const { headerRef, handleScroll } = useHeaderScroll();
   const loan1 = loans[0];
   const loan2 = loans[1];
 
@@ -20,6 +25,17 @@ const CompareResults = ({ loans, onBack, onCompareMore }) => {
   const betterIdx = loan1.totalPayment <= loan2.totalPayment ? 0 : 1;
   const betterLabel = `Loan ${betterIdx + 1}`;
   const worseLabel = `Loan ${betterIdx === 0 ? 2 : 1}`;
+
+  const handleShare = () => {
+    const text = `📊 Loan Comparison Results (EMI Pro)\n` +
+                 `─────────────────────────\n` +
+                 `Loan 1: EMI ${formatCurrency(loan1.emi)}, Total Int: ${formatCurrency(loan1.totalInterest)}, Total: ${formatCurrency(loan1.totalPayment)}\n` +
+                 `Loan 2: EMI ${formatCurrency(loan2.emi)}, Total Int: ${formatCurrency(loan2.totalInterest)}, Total: ${formatCurrency(loan2.totalPayment)}\n` +
+                 `─────────────────────────\n` +
+                 `Recommendation: ${betterLabel} saves ${formatCurrency(totalPayDiff)} overall\n` +
+                 `Shared via EMI Pro App`;
+    shareAsText('Loan Comparison', text);
+  };
 
   const LoanCard = ({ loan, idx }) => {
     const isBetter = idx === betterIdx;
@@ -98,24 +114,33 @@ const CompareResults = ({ loans, onBack, onCompareMore }) => {
   );
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-      {/* Header */}
-      <header className="px-6 pt-14 pb-4 flex items-center gap-4 bg-white dark:bg-gray-900 sticky top-0 z-10 border-b border-gray-100 dark:border-gray-800 transition-colors duration-300">
-        <button onClick={onBack} className="p-2 -ml-2 text-gray-800 dark:text-gray-200 active:scale-90 transition-transform">
-          <ChevronLeft size={24} />
-        </button>
-        <div className="flex items-center gap-2">
-          <div className="p-2 bg-pink-50 dark:bg-pink-950/20 rounded-xl">
-            <ArrowRightLeft size={18} className="text-pink-500 dark:text-pink-400" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Comparison</h1>
-            <p className="text-xs text-gray-400 dark:text-gray-500">2 loans compared</p>
-          </div>
-        </div>
-      </header>
+    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-300 overflow-hidden relative">
+      <div 
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto no-scrollbar"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px)'
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title="Comparison"
+          subtitle="2 loans compared"
+          onBack={onBack}
+          rightActions={
+            <button 
+              type="button"
+              onClick={handleShare}
+              aria-label="Share Comparison"
+              title="Share"
+              className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center"
+            >
+              <Share2 size={20} strokeWidth={2} />
+            </button>
+          }
+        />
 
-      <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-5 space-y-5">
+        <div className="px-5 py-5 space-y-5">
         {/* Side-by-side loan cards */}
         <div className="flex gap-3">
           <LoanCard loan={loan1} idx={0} />
@@ -167,6 +192,7 @@ const CompareResults = ({ loans, onBack, onCompareMore }) => {
           )}
         </div>
       </div>
+    </div>
 
       {/* Footer */}
       <div className="p-6 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 transition-colors duration-300">

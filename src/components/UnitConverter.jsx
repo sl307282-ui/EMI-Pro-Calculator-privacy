@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, ArrowUpDown, ChevronLeft, History, Trash2, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 
 const UNIT_DATA = {
   Length: {
@@ -77,6 +81,7 @@ const UNIT_DATA = {
 };
 
 const UnitConverter = ({ onBack }) => {
+  const { headerRef, scrollRef, handleScroll } = useHeaderScroll();
   const [category, setCategory] = useState('Length');
   const [fromUnit, setFromUnit] = useState(UNIT_DATA['Length'].units[0]);
   const [toUnit, setToUnit] = useState(UNIT_DATA['Length'].units[1]);
@@ -175,30 +180,32 @@ const UnitConverter = ({ onBack }) => {
   const categories = Object.keys(UNIT_DATA);
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-300 overflow-hidden h-full">
+    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden h-full">
       {/* Header Bar */}
-      <header className="bg-indigo-600 dark:bg-indigo-750 px-6 pt-14 pb-4 flex justify-between items-center shadow-lg z-30 transition-colors duration-300">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 -ml-2 text-white active:scale-90 transition-transform">
-            <ChevronLeft size={24} />
+      <AppHeader
+        headerRef={headerRef}
+        title="Unit Converter"
+        onBack={onBack}
+        rightActions={
+          <button 
+            type="button"
+            onClick={() => setIsHistoryOpen(true)}
+            aria-label="Conversion History"
+            title="History"
+            className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center relative"
+          >
+            <History size={20} strokeWidth={2} />
+            {history.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-[8px] font-black text-white w-4 h-4 rounded-full flex items-center justify-center border border-white dark:border-gray-900">
+                {history.length}
+              </span>
+            )}
           </button>
-          <h1 className="text-xl font-bold text-white animate-fade-in">Unit Converter</h1>
-        </div>
-        <button 
-          onClick={() => setIsHistoryOpen(true)}
-          className="text-white active:scale-90 transition-transform relative"
-        >
-          <History size={22} />
-          {history.length > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-[8px] font-black text-white w-4 h-4 rounded-full flex items-center justify-center border border-indigo-600 dark:border-indigo-750">
-              {history.length}
-            </span>
-          )}
-        </button>
-      </header>
+        }
+      />
 
       {/* Category Selector */}
-      <div className="bg-blue-50/50 dark:bg-blue-950/20 border-b border-blue-100/50 dark:border-gray-800 px-6 py-4 relative z-20 transition-colors duration-300">
+      <div className="bg-blue-50/50 dark:bg-blue-950/20 border-b border-blue-100/50 dark:border-gray-800 px-6 py-4 relative z-20">
         <button
           onClick={() => setIsCategoryOpen(!isCategoryOpen)}
           className="w-full flex justify-between items-center group"
@@ -238,7 +245,14 @@ const UnitConverter = ({ onBack }) => {
         </AnimatePresence>
       </div>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar p-6 flex flex-col items-center">
+      <div 
+        ref={scrollRef} 
+        onScroll={handleScroll} 
+        className="flex-1 overflow-y-auto no-scrollbar p-6 flex flex-col items-center"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px)'
+        }}
+      >
         {/* From Card */}
         <div className="w-full bg-white dark:bg-gray-800/40 rounded-3xl p-6 shadow-soft border border-gray-50 dark:border-gray-800 mb-4 transition-all focus-within:shadow-indigo-100/50 focus-within:border-indigo-100 dark:focus-within:border-indigo-900/50">
           <div className="relative mb-4">
@@ -299,7 +313,7 @@ const UnitConverter = ({ onBack }) => {
 
       {/* Premium History Drawer */}
       <AnimatePresence>
-        {isHistoryOpen && (
+        {isHistoryOpen && typeof document !== 'undefined' && createPortal(
           <>
             {/* Backdrop Blur Overlay */}
             <motion.div
@@ -307,7 +321,7 @@ const UnitConverter = ({ onBack }) => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsHistoryOpen(false)}
-              className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm z-40 cursor-pointer"
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[9999] cursor-pointer"
             />
 
             {/* Sliding Panel */}
@@ -316,7 +330,8 @@ const UnitConverter = ({ onBack }) => {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="absolute bottom-0 left-0 right-0 max-h-[80%] bg-white dark:bg-gray-900 rounded-t-[2.5rem] shadow-premium z-50 flex flex-col overflow-hidden border-t border-slate-100 dark:border-gray-800 transition-colors"
+              style={{ paddingBottom: 'calc(20px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))' }}
+              className="fixed bottom-0 left-0 right-0 max-h-[80%] bg-white dark:bg-gray-900 rounded-t-[2.5rem] shadow-premium z-[10000] flex flex-col overflow-hidden border-t border-slate-100 dark:border-gray-800 transition-colors"
             >
               {/* Drawer Pull Bar */}
               <div className="w-12 h-1 bg-slate-200 dark:bg-gray-700 rounded-full mx-auto my-3 shrink-0" />
@@ -365,7 +380,7 @@ const UnitConverter = ({ onBack }) => {
                         setToValue(item.toVal);
                         setIsHistoryOpen(false);
                       }}
-                      className="w-full text-left bg-slate-50 dark:bg-gray-850 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 border border-slate-100/50 dark:border-gray-800 rounded-2xl p-4 flex justify-between items-center gap-4 transition-all hover:scale-[1.01] active:scale-99 group"
+                      className="w-full text-left bg-slate-50 dark:bg-gray-855 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 border border-slate-100/50 dark:border-gray-800 rounded-2xl p-4 flex justify-between items-center gap-4 transition-all hover:scale-[1.01] active:scale-99 group"
                     >
                       <div className="space-y-1 flex-1">
                         <div className="flex justify-between items-center">
@@ -397,7 +412,8 @@ const UnitConverter = ({ onBack }) => {
                 )}
               </div>
             </motion.div>
-          </>
+          </>,
+          document.body
         )}
       </AnimatePresence>
     </div>

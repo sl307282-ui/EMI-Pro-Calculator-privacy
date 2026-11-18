@@ -1,9 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import HomeScreen from './components/HomeScreen';
+import CalculatorsScreen from './components/CalculatorsScreen';
+import SmartBankingScreen from './components/SmartBankingScreen';
+import SIPCalculator from './components/SIPCalculator';
+import UserProfile from './components/UserProfile';
+import BottomNav from './components/BottomNav';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { SplashScreen } from '@capacitor/splash-screen';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Bell, Calendar, X, AlertCircle } from 'lucide-react';
+
 import InputScreen from './components/InputScreen';
 import ResultsScreen from './components/ResultsScreen';
 import DetailsScreen from './components/DetailsScreen';
-import SIPCalculator from './components/SIPCalculator';
 import CompareLoansInput from './components/CompareLoansInput';
 import CompareResults from './components/CompareResults';
 import CompareLoansList from './components/CompareLoansList';
@@ -33,19 +42,18 @@ import PPFCalculator from './components/PPFCalculator';
 import InterestCalculator from './components/InterestCalculator';
 import FDCalculator from './components/FDCalculator';
 import UnitConverter from './components/UnitConverter';
-import SmartBankingScreen from './components/SmartBankingScreen';
-import CalculatorsScreen from './components/CalculatorsScreen';
+import LoanSplitCalculator from './components/LoanSplitCalculator';
+import RentVsBuyCalculator from './components/RentVsBuyCalculator';
+import CardTrapCalculator from './components/CardTrapCalculator';
+import WealthPlannerCalculator from './components/WealthPlannerCalculator';
+import TaxSalaryCalculator from './components/TaxSalaryCalculator';
+import RetirementCalculator from './components/RetirementCalculator';
+import SmartROICalculator from './components/SmartROICalculator';
 import NotificationCenter from './components/NotificationCenter';
-import BottomNav from './components/BottomNav';
-import UserProfile from './components/UserProfile';
 import DashboardCustomizer from './components/DashboardCustomizer';
-import { LocalNotifications } from '@capacitor/local-notifications';
-import { SplashScreen } from '@capacitor/splash-screen';
+import InflationInsights from './components/InflationInsights';
 import InstallModal from './components/InstallModal';
 import UpdateModal from './components/UpdateModal';
-import InflationInsights from './components/InflationInsights';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Bell, Calendar, X, AlertCircle } from 'lucide-react';
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 const parseLocalDate = (dateStr) => {
   if (!dateStr) return null;
@@ -190,31 +198,59 @@ const scheduleNotificationsForLoan = async (loan) => {
 };
 
 const tabVariants = {
-  initial: (direction) => ({
-    x: direction === 'forward' ? '100%' : '-100%',
-    opacity: 1
-  }),
+  initial: false,
+  animate: { opacity: 1, x: 0 },
+  exit: { opacity: 1, transition: { duration: 0 } },
+  transition: { duration: 0 }
+};
+
+const toolScreenVariants = {
+  initial: {
+    x: '100%',
+  },
   animate: {
     x: 0,
-    opacity: 1,
     transition: {
-      x: { type: 'spring', stiffness: 350, damping: 35 },
-      opacity: { duration: 0.2 }
-    }
+      duration: 0.24,
+      ease: [0.2, 0.0, 0.0, 1.0],
+    },
   },
-  exit: (direction) => ({
-    x: direction === 'forward' ? '-100%' : '100%',
-    opacity: 1,
+  exit: {
+    x: '100%',
+    pointerEvents: 'none',
     transition: {
-      x: { type: 'spring', stiffness: 350, damping: 35 },
-      opacity: { duration: 0.2 }
-    }
-  })
+      duration: 0.22,
+      ease: [0.2, 0.0, 0.0, 1.0],
+    },
+  },
+};
+
+const toolScreenMotionProps = {
+  variants: toolScreenVariants,
+  initial: 'initial',
+  animate: 'animate',
+  exit: 'exit',
+  style: {
+    transform: 'translate3d(0, 0, 0)',
+    backfaceVisibility: 'hidden',
+    WebkitBackfaceVisibility: 'hidden',
+    willChange: 'transform',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    zIndex: 10,
+  },
+  className: 'flex-1 flex flex-col overflow-hidden bg-[#F8FAFC] dark:bg-[#0F172A]'
 };
 
 const AppContent = () => {
   const { theme, currency, language } = useSettings();
   const [currentScreen, _setCurrentScreen] = useState('HOME');
+  const [navigationSource, setNavigationSource] = useState('bottom-nav'); // 'bottom-nav' | 'subpage'
   const [slideDirection, setSlideDirection] = useState('forward');
 
   const setCurrentScreen = (nextScreen) => {
@@ -233,26 +269,59 @@ const AppContent = () => {
         setSlideDirection('backward');
       }
     }
+    if (['HOME', 'CALCULATORS', 'SMART_BANKING', 'USER_PROFILE'].includes(resolvedNext)) {
+      setNavigationSource('bottom-nav');
+    }
     _setCurrentScreen(resolvedNext);
   };
 
   const [calculatorBackScreen, setCalculatorBackScreen] = useState('HOME');
+  const triggerGlobalBackRef = React.useRef(null);
 
-  const handleCalculatorBack = () => {
-    if (calculatorBackScreen === 'CALCULATORS') {
-      setCurrentScreen('CALCULATORS');
-      setActiveTab('calculators');
-    } else if (calculatorBackScreen === 'SMART_BANKING') {
-      setCurrentScreen('SMART_BANKING');
-      setActiveTab('smart_banking');
-    } else if (calculatorBackScreen === 'USER_PROFILE') {
-      setCurrentScreen('USER_PROFILE');
-      setActiveTab('profile');
-    } else {
-      setCurrentScreen('HOME');
-      setActiveTab('home');
+  // Unified Safe Back handler: blur active input immediately, clean up body/root overflow & pointer events, reset transition flags, then navigate in requestAnimationFrame
+  const handleSafeBack = React.useCallback((customBackFn) => {
+    if (typeof document !== 'undefined') {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      document.body.style.overflow = '';
+      document.body.style.pointerEvents = '';
+      const rootEl = document.getElementById('root');
+      if (rootEl) {
+        rootEl.style.overflow = '';
+        rootEl.style.pointerEvents = '';
+      }
     }
-  };
+    if (isTransitioningRef.current) {
+      isTransitioningRef.current = false;
+    }
+    requestAnimationFrame(() => {
+      if (typeof customBackFn === 'function') {
+        customBackFn();
+      } else if (triggerGlobalBackRef.current) {
+        triggerGlobalBackRef.current();
+      }
+    });
+  }, []);
+
+  const handleCalculatorBack = React.useCallback(() => {
+    handleSafeBack(() => {
+      setNavigationSource('bottom-nav');
+      if (calculatorBackScreen === 'CALCULATORS') {
+        setCurrentScreen('CALCULATORS');
+        setActiveTab('calculators');
+      } else if (calculatorBackScreen === 'SMART_BANKING') {
+        setCurrentScreen('SMART_BANKING');
+        setActiveTab('smart_banking');
+      } else if (calculatorBackScreen === 'USER_PROFILE') {
+        setCurrentScreen('USER_PROFILE');
+        setActiveTab('profile');
+      } else {
+        setCurrentScreen('HOME');
+        setActiveTab('home');
+      }
+    });
+  }, [calculatorBackScreen, handleSafeBack]);
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [latestVersion, setLatestVersion] = useState('');
@@ -374,29 +443,331 @@ const AppContent = () => {
       }
     };
 
-    checkUpdate();
+    // Defer update check until 2.5s after launch to avoid competing with startup rendering
+    const updateTimer = setTimeout(() => {
+      checkUpdate();
+    }, 2500);
+    return () => clearTimeout(updateTimer);
   }, []);
 
+  const TAB_INDICES = {
+    home: 0,
+    calculators: 1,
+    smart_banking: 2,
+    sip_growth: 3,
+    profile: 4,
+  };
+
+  const TAB_SCREEN_NAMES = {
+    home: 'HOME',
+    calculators: 'CALCULATORS',
+    smart_banking: 'SMART_BANKING',
+    sip_growth: 'SIP_CALC',
+    profile: 'USER_PROFILE',
+  };
+
+  const PRIMARY_TAB_SCREENS = ['HOME', 'CALCULATORS', 'SMART_BANKING', 'SIP_CALC', 'USER_PROFILE'];
+
+  const tabRefs = {
+    home: React.useRef(null),
+    calculators: React.useRef(null),
+    smart_banking: React.useRef(null),
+    sip_growth: React.useRef(null),
+    profile: React.useRef(null),
+  };
+
+  const isTransitioningRef = React.useRef(false);
+  const transitionCleanupTimerRef = React.useRef(null);
   const [activeTab, setActiveTab] = useState('home');
-  React.useEffect(() => {
-    if (currentScreen === 'HOME') setActiveTab('home');
-    else if (currentScreen === 'CALCULATORS') setActiveTab('calculators');
-    else if (currentScreen === 'SMART_BANKING') setActiveTab('smart_banking');
-    else if (currentScreen === 'SIP_CALC') setActiveTab('sip_growth');
-    else if (['USER_PROFILE', 'LOAN_PROFILE'].includes(currentScreen)) setActiveTab('profile');
-  }, [currentScreen]);
+  const [activePanelTab, setActivePanelTab] = useState('home');
+  const activeTabRef = React.useRef('home');
 
   React.useEffect(() => {
-    // Wait for the browser to complete layout and paint of the initial home screen
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  const syncTabPanelVisibility = React.useCallback((targetTab) => {
+    Object.keys(tabRefs).forEach((k) => {
+      const el = tabRefs[k]?.current;
+      if (el) {
+        if (k === targetTab) {
+          el.style.visibility = 'visible';
+          el.style.pointerEvents = 'auto';
+          el.style.zIndex = '2';
+          el.style.opacity = '1';
+          el.style.transform = 'translate3d(0, 0, 0)';
+          el.style.transition = 'none';
+        } else {
+          el.style.visibility = 'hidden';
+          el.style.pointerEvents = 'none';
+          el.style.zIndex = '0';
+          el.style.opacity = '0';
+          el.style.transform = 'translate3d(0, 0, 0)';
+          el.style.transition = 'none';
+        }
+      }
+    });
+  }, []);
+
+  React.useEffect(() => {
+    if (isTransitioningRef.current) return;
+    if (currentScreen === 'HOME') {
+      activeTabRef.current = 'home';
+      setActiveTab('home');
+      setActivePanelTab('home');
+      syncTabPanelVisibility('home');
+    } else if (currentScreen === 'CALCULATORS') {
+      activeTabRef.current = 'calculators';
+      setActiveTab('calculators');
+      setActivePanelTab('calculators');
+      syncTabPanelVisibility('calculators');
+    } else if (currentScreen === 'SMART_BANKING') {
+      activeTabRef.current = 'smart_banking';
+      setActiveTab('smart_banking');
+      setActivePanelTab('smart_banking');
+      syncTabPanelVisibility('smart_banking');
+    } else if (currentScreen === 'SIP_CALC') {
+      if (navigationSource === 'bottom-nav') {
+        activeTabRef.current = 'sip_growth';
+        setActiveTab('sip_growth');
+        setActivePanelTab('sip_growth');
+        syncTabPanelVisibility('sip_growth');
+      }
+    } else if (currentScreen === 'USER_PROFILE') {
+      activeTabRef.current = 'profile';
+      setActiveTab('profile');
+      setActivePanelTab('profile');
+      syncTabPanelVisibility('profile');
+    }
+  }, [currentScreen, navigationSource, syncTabPanelVisibility]);
+
+  const performTabTransition = useCallback((fromTab, toTab, direction) => {
+    const fromEl = tabRefs[fromTab]?.current;
+    const toEl = tabRefs[toTab]?.current;
+
+    if (!fromEl || !toEl) {
+      activeTabRef.current = toTab;
+      setActiveTab(toTab);
+      setActivePanelTab(toTab);
+      setCurrentScreen(TAB_SCREEN_NAMES[toTab] || 'HOME');
+      return;
+    }
+
+    if (transitionCleanupTimerRef.current) {
+      clearTimeout(transitionCleanupTimerRef.current);
+      transitionCleanupTimerRef.current = null;
+    }
+
+    isTransitioningRef.current = true;
+    activeTabRef.current = toTab;
+    setActiveTab(toTab);
+    setCurrentScreen(TAB_SCREEN_NAMES[toTab] || 'HOME');
+
+    const prefersReduced = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // Isolate the other 3 idle tabs completely
+    Object.keys(tabRefs).forEach((tabKey) => {
+      if (tabKey !== fromTab && tabKey !== toTab) {
+        const idleEl = tabRefs[tabKey]?.current;
+        if (idleEl) {
+          idleEl.style.visibility = 'hidden';
+          idleEl.style.pointerEvents = 'none';
+          idleEl.style.zIndex = '0';
+          idleEl.style.opacity = '0';
+          idleEl.style.transform = 'translate3d(0, 0, 0)';
+          idleEl.style.transition = 'none';
+        }
+      }
+    });
+
+    if (prefersReduced) {
+      fromEl.style.visibility = 'hidden';
+      fromEl.style.pointerEvents = 'none';
+      fromEl.style.zIndex = '0';
+      fromEl.style.opacity = '0';
+
+      toEl.style.visibility = 'visible';
+      toEl.style.pointerEvents = 'auto';
+      toEl.style.zIndex = '2';
+      toEl.style.opacity = '1';
+      toEl.style.transform = 'translate3d(0, 0, 0)';
+      toEl.style.transition = 'none';
+      setActivePanelTab(toTab);
+      isTransitioningRef.current = false;
+      return;
+    }
+
+    // Step 1: Set initial layout states
+    fromEl.style.transition = 'none';
+    fromEl.style.transform = 'translate3d(0, 0, 0)';
+    fromEl.style.opacity = '1';
+    fromEl.style.visibility = 'visible';
+    fromEl.style.pointerEvents = 'none';
+    fromEl.style.zIndex = '1';
+
+    toEl.style.transition = 'none';
+    toEl.style.transform = direction > 0 ? 'translate3d(100%, 0, 0)' : 'translate3d(-100%, 0, 0)';
+    toEl.style.opacity = '1';
+    toEl.style.visibility = 'visible';
+    toEl.style.pointerEvents = 'auto';
+    toEl.style.zIndex = '2';
+
+    // Step 2: Force layout flush to commit initial coordinates
+    void toEl.offsetHeight;
+
+    // Step 3: Run the 260ms Material decelerate curve
+    requestAnimationFrame(() => {
+      const motionCurve = 'transform 260ms cubic-bezier(0.2, 0.0, 0.0, 1.0), opacity 260ms cubic-bezier(0.2, 0.0, 0.0, 1.0)';
+
+      toEl.style.transition = motionCurve;
+      toEl.style.transform = 'translate3d(0, 0, 0)';
+      toEl.style.opacity = '1';
+
+      fromEl.style.transition = motionCurve;
+      fromEl.style.transform = direction > 0 ? 'translate3d(-28%, 0, 0)' : 'translate3d(28%, 0, 0)';
+      fromEl.style.opacity = '0.85';
+    });
+
+    // Step 4: Cleanup when animation ends
+    const cleanup = () => {
+      if (transitionCleanupTimerRef.current) {
+        clearTimeout(transitionCleanupTimerRef.current);
+        transitionCleanupTimerRef.current = null;
+      }
+
+      fromEl.style.transition = 'none';
+      fromEl.style.transform = 'translate3d(0, 0, 0)';
+      fromEl.style.opacity = '0';
+      fromEl.style.visibility = 'hidden';
+      fromEl.style.pointerEvents = 'none';
+      fromEl.style.zIndex = '0';
+
+      toEl.style.transition = 'none';
+      toEl.style.transform = 'translate3d(0, 0, 0)';
+      toEl.style.opacity = '1';
+      toEl.style.visibility = 'visible';
+      toEl.style.pointerEvents = 'auto';
+      toEl.style.zIndex = '2';
+
+      setActivePanelTab(toTab);
+      isTransitioningRef.current = false;
+    };
+
+    transitionCleanupTimerRef.current = setTimeout(cleanup, 280);
+  }, []);
+
+  const handleSelectTab = useCallback((tab) => {
+    setNavigationSource('bottom-nav');
+    if (tab === activeTabRef.current) {
+      if (tab === 'home') {
+        window.dispatchEvent(new CustomEvent('scrollToTop', { detail: { tab } }));
+      }
+      return;
+    }
+
+    if (isTransitioningRef.current) {
+      return;
+    }
+
+    const fromTab = activeTabRef.current;
+    const fromIndex = TAB_INDICES[fromTab] ?? 0;
+    const toIndex = TAB_INDICES[tab] ?? 0;
+    const direction = toIndex > fromIndex ? 1 : -1;
+
+    setCalculatorBackScreen('HOME');
+
+    if (!PRIMARY_TAB_SCREENS.includes(currentScreen)) {
+      // Switching from a tool sub-screen to a primary tab
+      activeTabRef.current = tab;
+      setActiveTab(tab);
+      setActivePanelTab(tab);
+      setCurrentScreen(TAB_SCREEN_NAMES[tab] || 'HOME');
+
+      Object.keys(tabRefs).forEach((k) => {
+        const el = tabRefs[k]?.current;
+        if (el) {
+          if (k === tab) {
+            el.style.visibility = 'visible';
+            el.style.pointerEvents = 'auto';
+            el.style.zIndex = '2';
+            el.style.opacity = '1';
+            el.style.transform = 'translate3d(0, 0, 0)';
+            el.style.transition = 'none';
+          } else {
+            el.style.visibility = 'hidden';
+            el.style.pointerEvents = 'none';
+            el.style.zIndex = '0';
+            el.style.opacity = '0';
+            el.style.transform = 'translate3d(0, 0, 0)';
+            el.style.transition = 'none';
+          }
+        }
+      });
+      return;
+    }
+
+    performTabTransition(fromTab, tab, direction);
+  }, [currentScreen, performTabTransition]);
+
+  const [safeBottom, setSafeBottom] = useState(() => {
+    if (typeof window === 'undefined') return 0;
+    const navAttr = document.documentElement.getAttribute('data-nav-bottom');
+    if (navAttr) return parseInt(navAttr, 10) || 0;
+    const computed = getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-bottom');
+    return parseInt(computed, 10) || 0;
+  });
+
+  React.useEffect(() => {
+    const handleInsetsChange = (e) => {
+      if (e?.detail?.bottom !== undefined) {
+        setSafeBottom(e.detail.bottom);
+      } else {
+        const computed = getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-bottom');
+        setSafeBottom(parseInt(computed, 10) || 0);
+      }
+    };
+
+    window.addEventListener('safeInsetsChange', handleInsetsChange);
+    window.addEventListener('resize', handleInsetsChange);
+
+    const navAttr = document.documentElement.getAttribute('data-nav-bottom');
+    if (navAttr) {
+      setSafeBottom(parseInt(navAttr, 10) || 0);
+    }
+
+    return () => {
+      window.removeEventListener('safeInsetsChange', handleInsetsChange);
+      window.removeEventListener('resize', handleInsetsChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        setTimeout(() => {
-          SplashScreen.hide().catch((err) => {
-            console.warn('SplashScreen hide failed or not on mobile device:', err);
-          });
-        }, 1200); // 1.2s delay to keep splash visible
+        if (!cancelled) {
+          if (window.AndroidThemeBridge && window.AndroidThemeBridge.notifyHomeReady) {
+            window.AndroidThemeBridge.notifyHomeReady();
+          }
+          SplashScreen.hide({ fadeOutDuration: 280 }).catch(() => {});
+        }
       });
     });
+
+    // Safety fallback so splash screen can never get stuck under unexpected conditions
+    const safetyTimer = setTimeout(() => {
+      if (!cancelled) {
+        if (window.AndroidThemeBridge && window.AndroidThemeBridge.notifyHomeReady) {
+          window.AndroidThemeBridge.notifyHomeReady();
+        }
+        SplashScreen.hide({ fadeOutDuration: 280 }).catch(() => {});
+      }
+    }, 3000);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(safetyTimer);
+    };
   }, []);
   const [calculatorData, setCalculatorData] = useState(null);
   const [comparisonLoans, setComparisonLoans] = useState([]);
@@ -456,12 +827,25 @@ const AppContent = () => {
       case 'PPF_CALC':
       case 'INTEREST_CALC':
       case 'UNIT_CONVERTER':
+      case 'LOAN_SPLIT':
+      case 'RENT_VS_BUY':
+      case 'CARD_TRAP':
+      case 'WEALTH_PLANNER':
+      case 'TAX_SALARY':
+      case 'RETIREMENT':
+      case 'SMART_ROI':
       case 'SMART_PREPAY':
       case 'SMART_PREPAY_TIPS':
       case 'INFLATION_INSIGHTS':
-      case 'SIP_CALC':
       case 'SIP_TIPS':
         handleCalculatorBack();
+        break;
+      case 'SIP_CALC':
+        if (navigationSource === 'bottom-nav') {
+          handleSelectTab('home');
+        } else {
+          handleCalculatorBack();
+        }
         break;
       case 'RESULTS':
         setCurrentScreen('INPUT');
@@ -477,42 +861,89 @@ const AppContent = () => {
         setCurrentScreen('QUICK_CALCULATOR');
         break;
       case 'LOAN_PROFILE':
-        if (loanProfileSource === 'USER_PROFILE') {
-          setCurrentScreen('USER_PROFILE');
-        } else {
-          setCurrentScreen('HOME');
-          setActiveTab('home');
-        }
+        handleSafeBack(() => {
+          setNavigationSource('bottom-nav');
+          if (loanProfileSource === 'USER_PROFILE') {
+            setCurrentScreen('USER_PROFILE');
+            setActiveTab('profile');
+            setActivePanelTab('profile');
+            syncTabPanelVisibility('profile');
+          } else {
+            setCurrentScreen('HOME');
+            setActiveTab('home');
+            setActivePanelTab('home');
+            syncTabPanelVisibility('home');
+          }
+        });
         break;
       case 'ADD_LOAN_PROFILE':
-        setLoanToEdit(null);
-        setCurrentScreen(profileDetailsSource === 'USER_PROFILE' ? 'USER_PROFILE' : 'LOAN_PROFILE');
+        handleSafeBack(() => {
+          setLoanToEdit(null);
+          if (profileDetailsSource === 'USER_PROFILE') {
+            setNavigationSource('bottom-nav');
+            setCurrentScreen('USER_PROFILE');
+            setActiveTab('profile');
+            setActivePanelTab('profile');
+            syncTabPanelVisibility('profile');
+          } else {
+            setCurrentScreen('LOAN_PROFILE');
+          }
+        });
         break;
       case 'LOAN_PROFILE_DETAILS':
-        setCurrentScreen(profileDetailsSource);
+        handleSafeBack(() => {
+          if (profileDetailsSource === 'USER_PROFILE') {
+            setNavigationSource('bottom-nav');
+            setCurrentScreen('USER_PROFILE');
+            setActiveTab('profile');
+            setActivePanelTab('profile');
+            syncTabPanelVisibility('profile');
+          } else if (profileDetailsSource === 'HOME') {
+            setNavigationSource('bottom-nav');
+            setCurrentScreen('HOME');
+            setActiveTab('home');
+            setActivePanelTab('home');
+            syncTabPanelVisibility('home');
+          } else {
+            setCurrentScreen(profileDetailsSource);
+          }
+        });
         break;
       case 'LOAN_PROFILE_SCHEDULE':
-        setCurrentScreen('LOAN_PROFILE_DETAILS');
+        handleSafeBack(() => {
+          setCurrentScreen('LOAN_PROFILE_DETAILS');
+        });
         break;
       case 'NOTIFICATIONS':
-        setCurrentScreen('HOME');
-        setActiveTab('home');
-        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+        handleSafeBack(() => {
+          setNavigationSource('bottom-nav');
+          setCurrentScreen('HOME');
+          setActiveTab('home');
+          setActivePanelTab('home');
+          syncTabPanelVisibility('home');
+          setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+        });
         break;
       case 'DASHBOARD_CUSTOMIZER':
+      case 'COMING_SOON':
+        handleSafeBack(() => {
+          setNavigationSource('bottom-nav');
+          setCurrentScreen('HOME');
+          setActiveTab('home');
+          setActivePanelTab('home');
+          syncTabPanelVisibility('home');
+        });
+        break;
       case 'USER_PROFILE':
       case 'CALCULATORS':
       case 'SMART_BANKING':
-      case 'COMING_SOON':
-        setCurrentScreen('HOME');
-        setActiveTab('home');
+        handleSelectTab('home');
         break;
       default:
         break;
     }
   };
 
-  const triggerGlobalBackRef = React.useRef(triggerGlobalBack);
   React.useEffect(() => {
     triggerGlobalBackRef.current = triggerGlobalBack;
   });
@@ -525,7 +956,7 @@ const AppContent = () => {
         const { App } = await import('@capacitor/app');
         activeListener = await App.addListener('backButton', () => {
           console.log('[EMI Pro Debug] Native back button/gesture triggered.');
-          triggerGlobalBackRef.current();
+          handleSafeBack();
         });
       } catch (e) {
         console.warn('[EMI Pro Debug] @capacitor/app plugin failed to load:', e);
@@ -537,7 +968,7 @@ const AppContent = () => {
         activeListener.remove();
       }
     };
-  }, []);
+  }, [handleSafeBack]);
 
   // Web touch gesture (Swipe from left edge to go back) support
   React.useEffect(() => {
@@ -562,7 +993,7 @@ const AppContent = () => {
         // Rules: Must start near left edge (< 30px), drag significantly right (> 80px), low vertical drift (< 40px)
         if (touchStartX < 30 && deltaX > 80 && Math.abs(deltaY) < 40) {
           console.log('[EMI Pro Debug] Swipe-from-left back gesture detected.');
-          triggerGlobalBackRef.current();
+          handleSafeBack();
         }
       }
     };
@@ -662,6 +1093,13 @@ const AppContent = () => {
       'STANDARD_CALC',
       'SCIENTIFIC_CALC',
       'LAND_PURCHASE',
+      'LOAN_SPLIT',
+      'RENT_VS_BUY',
+      'CARD_TRAP',
+      'WEALTH_PLANNER',
+      'TAX_SALARY',
+      'RETIREMENT',
+      'SMART_ROI',
       'COMMERCIAL_LOAN'
     ];
 
@@ -689,6 +1127,41 @@ const AppContent = () => {
     }
     setLoanProfiles(prev => prev.filter(l => l.id !== loanId));
   };
+
+  const handleUpdatePrepayments = async (loanId, updatedPrepayments) => {
+    const targetLoan = loanProfiles.find(l => l.id === loanId);
+    if (!targetLoan) return;
+
+    let updatedLoan = { ...targetLoan, prepayments: updatedPrepayments };
+
+    // Update notifications if active
+    if (targetLoan.notification) {
+      await cancelScheduledNotificationsForLoan(targetLoan);
+      const scheduledIds = await scheduleNotificationsForLoan(updatedLoan);
+      updatedLoan.scheduledNotificationIds = scheduledIds;
+    }
+
+    setLoanProfiles(prev => prev.map(l => l.id === loanId ? updatedLoan : l));
+    if (loanToEdit && loanToEdit.id === loanId) {
+      setLoanToEdit(updatedLoan);
+    }
+    if (selectedProfileLoan && selectedProfileLoan.id === loanId) {
+      setSelectedProfileLoan(updatedLoan);
+    }
+
+    try {
+      const raw = localStorage.getItem('emi_loan_profiles');
+      if (raw) {
+        const list = JSON.parse(raw);
+        const updatedList = list.map(l => l.id === loanId ? { ...l, prepayments: updatedPrepayments } : l);
+        localStorage.setItem('emi_loan_profiles', JSON.stringify(updatedList));
+      }
+    } catch (e) {
+      console.error('Error saving updated loan profiles to localStorage:', e);
+    }
+  };
+
+  const handleDeletePrepayment = handleUpdatePrepayments;
 
   const [showWelcomeAlert, setShowWelcomeAlert] = useState(false);
   const [urgentEMI, setUrgentEMI] = useState(null);
@@ -806,44 +1279,43 @@ const AppContent = () => {
     setCurrentScreen('RESULTS');
   };
 
-  const renderScreen = () => {
+  const isPrimaryTab = PRIMARY_TAB_SCREENS.includes(currentScreen) && (currentScreen !== 'SIP_CALC' || navigationSource === 'bottom-nav');
+
+  const getTabPanelInitialStyle = (tabId) => ({
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+    transform: 'translate3d(0, 0, 0)',
+    backfaceVisibility: 'hidden',
+    WebkitBackfaceVisibility: 'hidden',
+    willChange: 'transform',
+    contain: 'layout paint',
+    backgroundColor: theme === 'dark' ? '#0F172A' : '#F8FAFC',
+    visibility: activePanelTab === tabId ? 'visible' : 'hidden',
+    pointerEvents: activePanelTab === tabId ? 'auto' : 'none',
+    zIndex: activePanelTab === tabId ? 2 : 0,
+    opacity: activePanelTab === tabId ? 1 : 0,
+  });
+
+  const renderToolScreen = () => {
     switch (currentScreen) {
       case 'HOME':
-        return (
-          <motion.div
-            key="home"
-            custom={slideDirection}
-            variants={tabVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            style={{ willChange: 'transform, opacity', width: '100%', height: '100%' }}
-            className="flex-1 flex flex-col overflow-hidden"
-          >
-            <HomeScreen 
-              onNavigate={(screen, title) => {
-                if (screen === 'COMING_SOON' && title) setComingSoonTitle(title);
-                if (screen === 'LOAN_PROFILE') setLoanProfileSource('HOME');
-                setCalculatorBackScreen('HOME');
-                setCurrentScreen(screen);
-              }} 
-              onNotifications={() => setCurrentScreen('NOTIFICATIONS')}
-              onInstall={() => setShowInstallModal(true)}
-              notificationCount={notifications.filter(n => !n.isRead).length}
-            />
-          </motion.div>
-        );
+        return null;
       case 'INPUT':
         return (
           <motion.div
             key="input"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <InputScreen 
-              onBack={handleCalculatorBack} 
+              onBack={() => handleSafeBack(handleCalculatorBack)} 
               onCalculate={handleCalculate}
               initialData={calculatorData}
             />
@@ -853,10 +1325,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="results"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <ResultsScreen 
               data={calculatorData} 
@@ -872,10 +1341,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="details"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <DetailsScreen 
               data={calculatorData} 
@@ -887,10 +1353,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="compare_input"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <CompareLoansInput 
               onBack={handleCalculatorBack}
@@ -910,10 +1373,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="compare_results"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <CompareResults 
               loans={comparisonLoans}
@@ -926,10 +1386,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="compare_list"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <CompareLoansList 
               initialLoans={comparisonLoans}
@@ -946,10 +1403,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="quick_calculator"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <QuickCalculator 
               onBack={handleCalculatorBack}
@@ -964,10 +1418,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="quick_calculator_details"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <QuickCalculatorDetails 
               data={quickCalculatorData}
@@ -979,10 +1430,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="loan_affordability"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <LoanAffordability onBack={handleCalculatorBack} />
           </motion.div>
@@ -991,10 +1439,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="loan_eligibility"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <LoanEligibility onBack={handleCalculatorBack} />
           </motion.div>
@@ -1003,20 +1448,25 @@ const AppContent = () => {
         return (
           <motion.div
             key="loan_profile"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <LoanProfile 
               loans={loanProfiles}
               onBack={() => {
-                if (loanProfileSource === 'USER_PROFILE') {
-                  setCurrentScreen('USER_PROFILE');
-                } else {
-                  setCurrentScreen('HOME');
-                  setActiveTab('home');
-                }
+                handleSafeBack(() => {
+                  setNavigationSource('bottom-nav');
+                  if (loanProfileSource === 'USER_PROFILE') {
+                    setCurrentScreen('USER_PROFILE');
+                    setActiveTab('profile');
+                    setActivePanelTab('profile');
+                    syncTabPanelVisibility('profile');
+                  } else {
+                    setCurrentScreen('HOME');
+                    setActiveTab('home');
+                    setActivePanelTab('home');
+                    syncTabPanelVisibility('home');
+                  }
+                });
               }}
               onAdd={() => {
                 setProfileDetailsSource('LOAN_PROFILE');
@@ -1033,6 +1483,7 @@ const AppContent = () => {
                 setCurrentScreen('ADD_LOAN_PROFILE');
               }}
               onDelete={handleDeleteLoan}
+              onUpdatePrepayments={handleUpdatePrepayments}
             />
           </motion.div>
         );
@@ -1040,15 +1491,22 @@ const AppContent = () => {
         return (
           <motion.div
             key="add_loan_profile"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <AddLoanProfile 
               onBack={() => {
-                setLoanToEdit(null);
-                setCurrentScreen(profileDetailsSource === 'USER_PROFILE' ? 'USER_PROFILE' : 'LOAN_PROFILE');
+                handleSafeBack(() => {
+                  setLoanToEdit(null);
+                  if (profileDetailsSource === 'USER_PROFILE') {
+                    setNavigationSource('bottom-nav');
+                    setCurrentScreen('USER_PROFILE');
+                    setActiveTab('profile');
+                    setActivePanelTab('profile');
+                    syncTabPanelVisibility('profile');
+                  } else {
+                    setCurrentScreen('LOAN_PROFILE');
+                  }
+                });
               }}
               onSave={async (loanData) => {
                 let finalLoanData = { ...loanData };
@@ -1072,8 +1530,20 @@ const AppContent = () => {
                   setLoanProfiles(prev => [...prev, finalLoanData]);
                 }
                 setLoanToEdit(null);
-                setCurrentScreen(profileDetailsSource === 'USER_PROFILE' ? 'USER_PROFILE' : 'LOAN_PROFILE');
+                handleSafeBack(() => {
+                  if (profileDetailsSource === 'USER_PROFILE') {
+                    setNavigationSource('bottom-nav');
+                    setCurrentScreen('USER_PROFILE');
+                    setActiveTab('profile');
+                    setActivePanelTab('profile');
+                    syncTabPanelVisibility('profile');
+                  } else {
+                    setCurrentScreen('LOAN_PROFILE');
+                  }
+                });
               }}
+              onUpdatePrepayments={handleUpdatePrepayments}
+              onDeletePrepayment={handleDeletePrepayment}
               initialData={loanToEdit}
             />
           </motion.div>
@@ -1082,14 +1552,29 @@ const AppContent = () => {
         return (
           <motion.div
             key="loan_profile_details"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <LoanProfileDetails 
               loan={loanProfiles.find(l => l.id === selectedProfileLoan?.id) || selectedProfileLoan}
-              onBack={() => setCurrentScreen(profileDetailsSource)}
+              onBack={() => {
+                handleSafeBack(() => {
+                  if (profileDetailsSource === 'USER_PROFILE') {
+                    setNavigationSource('bottom-nav');
+                    setCurrentScreen('USER_PROFILE');
+                    setActiveTab('profile');
+                    setActivePanelTab('profile');
+                    syncTabPanelVisibility('profile');
+                  } else if (profileDetailsSource === 'HOME') {
+                    setNavigationSource('bottom-nav');
+                    setCurrentScreen('HOME');
+                    setActiveTab('home');
+                    setActivePanelTab('home');
+                    syncTabPanelVisibility('home');
+                  } else {
+                    setCurrentScreen(profileDetailsSource);
+                  }
+                });
+              }}
               onViewSchedule={() => setCurrentScreen('LOAN_PROFILE_SCHEDULE')}
             />
           </motion.div>
@@ -1098,14 +1583,15 @@ const AppContent = () => {
         return (
           <motion.div
             key="loan_profile_schedule"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <LoanProfileSchedule 
               loan={loanProfiles.find(l => l.id === selectedProfileLoan?.id) || selectedProfileLoan}
-              onBack={() => setCurrentScreen('LOAN_PROFILE_DETAILS')}
+              onBack={() => {
+                handleSafeBack(() => {
+                  setCurrentScreen('LOAN_PROFILE_DETAILS');
+                });
+              }}
             />
           </motion.div>
         );
@@ -1113,10 +1599,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="moratorium"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <MoratoriumCalculator onBack={handleCalculatorBack} />
           </motion.div>
@@ -1125,10 +1608,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="advance_emi"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <AdvanceEMICalculator 
               onBack={handleCalculatorBack} 
@@ -1143,10 +1623,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="advance_emi_details"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             {advanceEMIData ? (
               <AdvanceEMIDetails 
@@ -1167,10 +1644,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="prepayment_roi"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <PrePaymentROI onBack={handleCalculatorBack} />
           </motion.div>
@@ -1179,10 +1653,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="standard_calc"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <StandardCalculator onBack={handleCalculatorBack} />
           </motion.div>
@@ -1191,10 +1662,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="scientific_calc"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <ScientificCalculator onBack={handleCalculatorBack} />
           </motion.div>
@@ -1203,10 +1671,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="land_purchase"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <LandPurchaseCalculator onBack={handleCalculatorBack} />
           </motion.div>
@@ -1215,10 +1680,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="loan_refinance"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <LoanRefinance onBack={handleCalculatorBack} />
           </motion.div>
@@ -1227,10 +1689,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="chit_calculator"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <ChitCalculator onBack={handleCalculatorBack} />
           </motion.div>
@@ -1239,46 +1698,81 @@ const AppContent = () => {
         return (
           <motion.div
             key="fd_calc"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <FDCalculator onBack={handleCalculatorBack} />
           </motion.div>
         );
-      case 'SMART_BANKING':
+      case 'LOAN_SPLIT':
         return (
           <motion.div
-            key="smart_banking"
-            custom={slideDirection}
-            variants={tabVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            style={{ willChange: 'transform, opacity', width: '100%', height: '100%' }}
-            className="flex-1 flex flex-col overflow-hidden"
+            key="loan_split"
+            {...toolScreenMotionProps}
           >
-            <SmartBankingScreen 
-              onBack={() => {
-                setCurrentScreen('HOME');
-                setActiveTab('home');
-              }} 
-              onNavigate={(route) => {
-                setCalculatorBackScreen('SMART_BANKING');
-                setCurrentScreen(route);
-              }}
-            />
+            <LoanSplitCalculator onBack={handleCalculatorBack} />
           </motion.div>
         );
+      case 'RENT_VS_BUY':
+        return (
+          <motion.div
+            key="rent_vs_buy"
+            {...toolScreenMotionProps}
+          >
+            <RentVsBuyCalculator onBack={handleCalculatorBack} />
+          </motion.div>
+        );
+      case 'CARD_TRAP':
+        return (
+          <motion.div
+            key="card_trap"
+            {...toolScreenMotionProps}
+          >
+            <CardTrapCalculator onBack={handleCalculatorBack} />
+          </motion.div>
+        );
+      case 'WEALTH_PLANNER':
+        return (
+          <motion.div
+            key="wealth_planner"
+            {...toolScreenMotionProps}
+          >
+            <WealthPlannerCalculator onBack={handleCalculatorBack} />
+          </motion.div>
+        );
+      case 'TAX_SALARY':
+        return (
+          <motion.div
+            key="tax_salary"
+            {...toolScreenMotionProps}
+          >
+            <TaxSalaryCalculator onBack={handleCalculatorBack} />
+          </motion.div>
+        );
+      case 'RETIREMENT':
+        return (
+          <motion.div
+            key="retirement"
+            {...toolScreenMotionProps}
+          >
+            <RetirementCalculator onBack={handleCalculatorBack} />
+          </motion.div>
+        );
+      case 'SMART_ROI':
+        return (
+          <motion.div
+            key="smart_roi"
+            {...toolScreenMotionProps}
+          >
+            <SmartROICalculator onBack={handleCalculatorBack} />
+          </motion.div>
+        );
+      case 'SMART_BANKING':
+        return null;
       case 'UNIT_CONVERTER':
         return (
           <motion.div
             key="unit_converter"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <UnitConverter onBack={handleCalculatorBack} />
           </motion.div>
@@ -1287,10 +1781,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="rd_calc"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <RDCalculator onBack={handleCalculatorBack} />
           </motion.div>
@@ -1299,10 +1790,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="ppf_calc"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <PPFCalculator onBack={handleCalculatorBack} />
           </motion.div>
@@ -1311,54 +1799,30 @@ const AppContent = () => {
         return (
           <motion.div
             key="interest_calc"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <InterestCalculator onBack={handleCalculatorBack} />
           </motion.div>
         );
       case 'CALCULATORS':
-        return (
-          <motion.div
-            key="calculators"
-            custom={slideDirection}
-            variants={tabVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            style={{ willChange: 'transform, opacity', width: '100%', height: '100%' }}
-            className="flex-1 flex flex-col overflow-hidden"
-          >
-            <CalculatorsScreen 
-              onBack={() => {
-                setCurrentScreen('HOME');
-                setActiveTab('home');
-              }} 
-              onNavigate={(route, title) => {
-                if (route === 'COMING_SOON' && title) setComingSoonTitle(title);
-                setCalculatorBackScreen('CALCULATORS');
-                setCurrentScreen(route);
-              }}
-            />
-          </motion.div>
-        );
+        return null;
       case 'NOTIFICATIONS':
         return (
           <motion.div
             key="notifications"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <NotificationCenter 
               notifications={notifications}
               onBack={() => {
-                setCurrentScreen('HOME');
-                setActiveTab('home');
-                setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+                handleSafeBack(() => {
+                  setNavigationSource('bottom-nav');
+                  setCurrentScreen('HOME');
+                  setActiveTab('home');
+                  setActivePanelTab('home');
+                  syncTabPanelVisibility('home');
+                  setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+                });
               }}
               onClear={() => setNotifications([])}
               onActionClick={(notif) => {
@@ -1375,51 +1839,23 @@ const AppContent = () => {
           </motion.div>
         );
       case 'USER_PROFILE':
-        return (
-          <motion.div
-            key="user_profile"
-            custom={slideDirection}
-            variants={tabVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            style={{ willChange: 'transform, opacity', width: '100%', height: '100%' }}
-            className="flex-1 flex flex-col overflow-hidden"
-          >
-            <UserProfile
-              loans={loanProfiles}
-              onBack={() => {
-                setCurrentScreen('HOME');
-                setActiveTab('home');
-              }}
-              onNotifications={() => setCurrentScreen('NOTIFICATIONS')}
-              notificationCount={notifications.filter(n => !n.isRead).length}
-              onViewLoan={(loan) => {
-                setSelectedProfileLoan(loan);
-                setProfileDetailsSource('USER_PROFILE');
-                setCurrentScreen('LOAN_PROFILE_DETAILS');
-              }}
-               onAdd={() => {
-                setLoanProfileSource('USER_PROFILE');
-                setCurrentScreen('LOAN_PROFILE');
-              }}
-            />
-          </motion.div>
-        );
+        return null;
 
       case 'DASHBOARD_CUSTOMIZER':
         return (
           <motion.div
             key="dashboard_customizer"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <DashboardCustomizer
               onBack={() => {
-                setCurrentScreen('HOME');
-                setActiveTab('home');
+                handleSafeBack(() => {
+                  setNavigationSource('bottom-nav');
+                  setCurrentScreen('HOME');
+                  setActiveTab('home');
+                  setActivePanelTab('home');
+                  syncTabPanelVisibility('home');
+                });
               }}
             />
           </motion.div>
@@ -1429,10 +1865,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="smart_prepay"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <SmartPrepayCalculator onBack={handleCalculatorBack} />
           </motion.div>
@@ -1441,10 +1874,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="smart_prepay_tips"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <SmartPrepayTips 
               onBack={handleCalculatorBack} 
@@ -1458,10 +1888,7 @@ const AppContent = () => {
         return (
           <motion.div
             key="inflation_insights"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <InflationInsights onBack={handleCalculatorBack} />
           </motion.div>
@@ -1470,25 +1897,16 @@ const AppContent = () => {
         return (
           <motion.div
             key="sip_calc"
-            custom={slideDirection}
-            variants={tabVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            style={{ willChange: 'transform, opacity', width: '100%', height: '100%' }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
-            <SIPCalculator onBack={handleCalculatorBack} />
+            <SIPCalculator onBack={() => handleSafeBack(handleCalculatorBack)} hasBottomNav={false} />
           </motion.div>
         );
       case 'SIP_TIPS':
         return (
           <motion.div
             key="sip_tips"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <SIPTips 
               onBack={handleCalculatorBack} 
@@ -1502,44 +1920,40 @@ const AppContent = () => {
         return (
           <motion.div
             key="coming_soon"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="flex-1 flex flex-col overflow-hidden"
+            {...toolScreenMotionProps}
           >
             <ComingSoon onBack={() => {
-                setCurrentScreen('HOME');
-                setActiveTab('home');
+                handleSafeBack(() => {
+                  setNavigationSource('bottom-nav');
+                  setCurrentScreen('HOME');
+                  setActiveTab('home');
+                  setActivePanelTab('home');
+                  syncTabPanelVisibility('home');
+                });
               }} title={comingSoonTitle} />
           </motion.div>
         );
       default:
-        return (
-          <motion.div
-            key="home"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="flex-1 flex flex-col overflow-hidden"
-          >
-            <HomeScreen 
-              onNavigate={(screen, title) => {
-                if (screen === 'COMING_SOON' && title) setComingSoonTitle(title);
-                setCalculatorBackScreen('HOME');
-                setCurrentScreen(screen);
-              }} 
-              onNotifications={() => setCurrentScreen('NOTIFICATIONS')}
-              onInstall={() => setShowInstallModal(true)}
-              notificationCount={notifications.filter(n => !n.isRead).length}
-            />
-          </motion.div>
-        );
+        return null;
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-0 sm:p-4 transition-colors duration-300">
-      <div className="w-full h-screen sm:h-[844px] sm:max-w-md sm:rounded-[3rem] sm:border-[8px] sm:border-gray-900 dark:sm:border-gray-800 bg-white dark:bg-gray-900 shadow-2xl relative flex flex-col overflow-hidden transition-all duration-300">
+    <div 
+      className="min-h-[100svh] h-[100svh] flex items-center justify-center p-0 sm:p-4"
+      style={{
+        minHeight: '100svh',
+        height: '100svh',
+        backgroundColor: theme === 'dark' ? '#0F172A' : '#F8FAFC'
+      }}
+    >
+      <div 
+        className="w-full h-full sm:h-[844px] sm:max-w-md sm:rounded-[3rem] sm:border-[8px] sm:border-gray-900 dark:sm:border-gray-800 shadow-2xl relative flex flex-col overflow-hidden"
+        style={{
+          minHeight: '100svh',
+          backgroundColor: theme === 'dark' ? '#0F172A' : '#F8FAFC'
+        }}
+      >
         
         {/* Notch for desktop view */}
         <div className="hidden sm:flex h-6 justify-center items-end pb-1 bg-white dark:bg-gray-900 transition-colors duration-300">
@@ -1551,35 +1965,155 @@ const AppContent = () => {
           <div className="absolute inset-0 pointer-events-none opacity-40 dark:opacity-20 overflow-hidden z-0">
             <div className="absolute -top-24 -left-24 w-96 h-96 bg-blue-400 blur-[100px] rounded-full animate-pulse" />
             <div className="absolute top-1/2 -right-24 w-80 h-80 bg-indigo-400 blur-[100px] rounded-full" />
-            <div className="absolute -bottom-24 left-1/4 w-72 h-72 bg-purple-400 blur-[100px] rounded-full opacity-50" />
           </div>
 
-          <div className="flex-1 relative z-10 flex flex-col overflow-hidden">
+          <div 
+            className="flex-1 relative z-10 flex flex-col overflow-hidden"
+            style={{
+              backgroundColor: theme === 'dark' ? '#0F172A' : '#F8FAFC'
+            }}
+          >
             <div className="flex-1 relative flex flex-col overflow-hidden">
-              <AnimatePresence mode="popLayout" custom={slideDirection}>
-                {renderScreen()}
-              </AnimatePresence>
+              {/* Primary 5-Tab Shell: GPU-Accelerated Directional Slide Viewport */}
+              <div
+                className="flex-1 flex flex-col overflow-hidden"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  position: 'absolute',
+                  inset: 0,
+                  overflow: 'hidden',
+                  visibility: 'visible',
+                  pointerEvents: isPrimaryTab ? 'auto' : 'none',
+                  zIndex: 1,
+                }}
+              >
+                <div
+                  key="tab-home"
+                  ref={tabRefs.home}
+                  id="tab-panel-home"
+                  style={getTabPanelInitialStyle('home')}
+                >
+                  <HomeScreen 
+                    onNavigate={(screen, title) => {
+                      if (screen === 'COMING_SOON' && title) setComingSoonTitle(title);
+                      if (screen === 'LOAN_PROFILE') setLoanProfileSource('HOME');
+                      setCalculatorBackScreen('HOME');
+                      setNavigationSource('subpage');
+                      setCurrentScreen(screen);
+                    }} 
+                    onNotifications={() => {
+                      setCalculatorBackScreen('HOME');
+                      setNavigationSource('subpage');
+                      setCurrentScreen('NOTIFICATIONS');
+                    }}
+                    onInstall={() => setShowInstallModal(true)}
+                    notificationCount={notifications.filter(n => !n.isRead).length}
+                  />
+                </div>
+
+                <div
+                  key="tab-calculators"
+                  ref={tabRefs.calculators}
+                  id="tab-panel-calculators"
+                  style={getTabPanelInitialStyle('calculators')}
+                >
+                  <CalculatorsScreen 
+                    onBack={() => {
+                      handleSelectTab('home');
+                    }} 
+                    onNavigate={(route, title) => {
+                      if (route === 'COMING_SOON' && title) setComingSoonTitle(title);
+                      setCalculatorBackScreen('CALCULATORS');
+                      setNavigationSource('subpage');
+                      setCurrentScreen(route);
+                    }}
+                  />
+                </div>
+
+                <div
+                  key="tab-smart-banking"
+                  ref={tabRefs.smart_banking}
+                  id="tab-panel-smart_banking"
+                  style={getTabPanelInitialStyle('smart_banking')}
+                >
+                  <SmartBankingScreen 
+                    onBack={() => {
+                      handleSelectTab('home');
+                    }} 
+                    onNavigate={(route) => {
+                      setCalculatorBackScreen('SMART_BANKING');
+                      setNavigationSource('subpage');
+                      setCurrentScreen(route);
+                    }}
+                  />
+                </div>
+
+                <div
+                  key="tab-sip-growth"
+                  ref={tabRefs.sip_growth}
+                  id="tab-panel-sip_growth"
+                  style={getTabPanelInitialStyle('sip_growth')}
+                >
+                  <SIPCalculator onBack={() => handleSelectTab('home')} hasBottomNav={true} />
+                </div>
+
+                <div
+                  key="tab-profile"
+                  ref={tabRefs.profile}
+                  id="tab-panel-profile"
+                  style={getTabPanelInitialStyle('profile')}
+                >
+                  <UserProfile
+                    loans={loanProfiles}
+                    onBack={() => {
+                      handleSelectTab('home');
+                    }}
+                    onNotifications={() => {
+                      setCalculatorBackScreen('USER_PROFILE');
+                      setNavigationSource('subpage');
+                      setCurrentScreen('NOTIFICATIONS');
+                    }}
+                    notificationCount={notifications.filter(n => !n.isRead).length}
+                    onViewLoan={(loan) => {
+                      setSelectedProfileLoan(loan);
+                      setProfileDetailsSource('USER_PROFILE');
+                      setCalculatorBackScreen('USER_PROFILE');
+                      setNavigationSource('subpage');
+                      setCurrentScreen('LOAN_PROFILE_DETAILS');
+                    }}
+                    onAdd={() => {
+                      setLoanProfileSource('USER_PROFILE');
+                      setCalculatorBackScreen('USER_PROFILE');
+                      setNavigationSource('subpage');
+                      setCurrentScreen('LOAN_PROFILE');
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Tool / Sub-Screens: Rendered on top when active with GPU slide transitions */}
+              <div 
+                className="flex-1 flex flex-col overflow-hidden"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  position: 'absolute',
+                  inset: 0,
+                  zIndex: 20,
+                  pointerEvents: isPrimaryTab ? 'none' : 'auto',
+                }}
+              >
+                <AnimatePresence>
+                  {!isPrimaryTab && renderToolScreen()}
+                </AnimatePresence>
+              </div>
             </div>
-            {['HOME', 'CALCULATORS', 'SMART_BANKING', 'SIP_CALC', 'USER_PROFILE', 'LOAN_PROFILE'].includes(currentScreen) && (
-              <BottomNav 
-                activeTab={activeTab} 
-                onTabChange={(tab) => {
-                  setActiveTab(tab);
-                  setCalculatorBackScreen('HOME');
-                  if (tab === 'smart_banking') {
-                    setCurrentScreen('SMART_BANKING');
-                  } else if (tab === 'home') {
-                    setCurrentScreen('HOME');
-                  } else if (tab === 'calculators') {
-                    setCurrentScreen('CALCULATORS');
-                  } else if (tab === 'sip_growth') {
-                    setCurrentScreen('SIP_CALC');
-                  } else if (tab === 'profile') {
-                    setCurrentScreen('USER_PROFILE');
-                  }
-                }} 
-              />
-            )}
+            <BottomNav 
+              activeTab={activeTab} 
+              onSelectTab={handleSelectTab}
+              isVisible={isPrimaryTab}
+            />
           </div>
 
           {/* Welcome Alert Overlay */}
@@ -1589,7 +2123,7 @@ const AppContent = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="absolute inset-0 z-[100] flex items-center justify-center p-6 bg-gray-900/40 backdrop-blur-sm"
+                className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-gray-900/40 backdrop-blur-sm"
               >
                 <motion.div 
                   initial={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -1650,13 +2184,33 @@ const AppContent = () => {
               </motion.div>
             )}
           </AnimatePresence>
-          <InstallModal isOpen={showInstallModal} onClose={() => setShowInstallModal(false)} />
-          <UpdateModal 
-            isOpen={showUpdateModal} 
-            onClose={() => setShowUpdateModal(false)} 
-            updateUrl={updateUrl} 
-            latestVersion={latestVersion} 
-            isForceUpdate={isForceUpdate}
+          {showInstallModal && <InstallModal isOpen={showInstallModal} onClose={() => setShowInstallModal(false)} />}
+          {showUpdateModal && (
+            <UpdateModal 
+              isOpen={showUpdateModal} 
+              onClose={() => setShowUpdateModal(false)} 
+              updateUrl={updateUrl} 
+              latestVersion={latestVersion} 
+              isForceUpdate={isForceUpdate}
+            />
+          )}
+
+          {/* Global Bottom System Navigation Bar Backing Strip */}
+          <div 
+            aria-hidden="true"
+            className="fixed sm:absolute bottom-0 left-0 right-0 z-[60] pointer-events-none"
+            style={{
+              height: 'var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))',
+              backgroundColor: theme === 'dark' ? '#101827' : '#E8EEF7',
+              borderTop: safeBottom > 12 
+                ? (theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(15, 23, 42, 0.07)') 
+                : 'none',
+              display: safeBottom === 0 ? 'none' : 'block',
+              overflow: 'hidden',
+              transition: 'height 0.15s ease-out, background-color 0.15s ease-out',
+              transform: 'translateZ(0)',
+              WebkitBackfaceVisibility: 'hidden',
+            }}
           />
         </div>
       </div>

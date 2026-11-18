@@ -1,11 +1,15 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, RotateCcw, TrendingUp, Info, Sparkles, Edit3, ArrowLeft } from 'lucide-react';
+import { ChevronLeft, RotateCcw, TrendingUp, Info, Sparkles, Edit3, ArrowLeft, Share2 } from 'lucide-react';
 import { calculateEMI, formatNumericInput, parseFormattedNumber, formatCurrency } from '../utils/calculatorLogic';
+import { shareAsText } from '../utils/exportUtils';
 import { motion, AnimatePresence } from 'framer-motion';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 
 const FormRow = ({ label, field, placeholder, value, onChange, symbol, isReadOnly = false, type = 'text', inputMode = 'decimal' }) => (
   <div className="flex items-center justify-between gap-4 py-2 border-b border-gray-50 dark:border-gray-800/50 last:border-0">
-    <label className="text-[12px] font-semibold text-gray-500 dark:text-gray-400 flex-1">{label}</label>
+    <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3] flex-1">{label}</label>
     <div className="relative flex items-center flex-[1.4] max-w-[170px]">
       <input
         type={type}
@@ -14,21 +18,22 @@ const FormRow = ({ label, field, placeholder, value, onChange, symbol, isReadOnl
         readOnly={isReadOnly}
         value={isReadOnly ? (value > 0 ? formatCurrency(value) : '0.00') : formatNumericInput(value)}
         onChange={(e) => !isReadOnly && onChange(field, parseFormattedNumber(e.target.value))}
-        className={`w-full ${isReadOnly ? 'bg-gray-50/50 dark:bg-gray-800/30' : 'bg-white dark:bg-gray-800'} border border-gray-100 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm font-black text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-right pr-9 shadow-sm`}
+        className={`w-full ${isReadOnly ? 'bg-[#F1F5F9]/60 dark:bg-gray-800/40 text-slate-700 dark:text-slate-300' : 'bg-[#F8FAFC] dark:bg-gray-800 text-slate-900 dark:text-white'} border border-[#CBD5E1] dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-right pr-9 shadow-sm placeholder:text-slate-500`}
       />
-      {symbol && <span className="absolute right-3.5 text-[9px] font-black text-gray-400 uppercase tracking-tighter">{symbol}</span>}
+      {symbol && <span className="absolute right-3.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tighter">{symbol}</span>}
     </div>
   </div>
 );
 
 const SummaryItem = ({ label, value }) => (
   <div className="flex justify-between items-center py-1.5">
-    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</span>
-    <span className="text-[11px] font-black text-gray-700 dark:text-gray-200">{value}</span>
+    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{label}</span>
+    <span className="text-[12px] font-semibold text-slate-800 dark:text-slate-100">{value}</span>
   </div>
 );
 
 const SmartPrepayCalculator = ({ onBack }) => {
+  const { headerRef, scrollRef, handleScroll } = useHeaderScroll();
   const [formData, setFormData] = useState({
     loanAmount: '',
     interestRate: '',
@@ -144,39 +149,70 @@ const SmartPrepayCalculator = ({ onBack }) => {
     setShowResults(false);
   };
 
-  return (
-    <div className="flex-1 h-full flex flex-col bg-gray-50 dark:bg-gray-950 transition-colors duration-300 min-h-0 overflow-hidden">
-      {/* Header */}
-      <header className="px-6 pt-14 pb-4 flex items-center bg-white dark:bg-gray-900 border-b border-gray-50 dark:border-gray-800 sticky top-0 z-20">
-        <button onClick={showResults ? () => setShowResults(false) : onBack} className="p-2 -ml-2 text-gray-600 dark:text-gray-300 active:scale-90 transition-transform">
-          {showResults ? <ArrowLeft size={24} /> : <ChevronLeft size={24} />}
-        </button>
-        <h1 className="ml-4 text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <Sparkles size={20} className="text-blue-500" />
-            {showResults ? 'Savings Analysis' : 'Smart Prepay'}
-        </h1>
-      </header>
+  const handleShare = () => {
+    const p = parseFormattedNumber(formData.loanAmount) || 1000000;
+    const prepay = parseFormattedNumber(formData.prepayAmount) || 100000;
+    const interestSaved = results ? results.interestSaved : 0;
+    const shareContent = 
+      `⚡ Smart Prepay Analysis (EMI Pro)\n` +
+      `─────────────────────────\n` +
+      `Loan Amount: ₹${Number(p).toLocaleString('en-IN')}\n` +
+      `Prepayment Amount: ₹${Number(prepay).toLocaleString('en-IN')}\n` +
+      (results ? `Total Interest Saved: ₹${Number(Math.round(interestSaved)).toLocaleString('en-IN')}\n` : '') +
+      `Strategy: ${formData.strategy}\n` +
+      `─────────────────────────\n` +
+      `Calculated with EMI Pro`;
+    shareAsText('Smart Prepay Analysis', shareContent);
+  };
 
-      <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
-        <AnimatePresence mode="wait">
+  return (
+    <div className="flex-1 h-full flex flex-col bg-gray-50 dark:bg-gray-950 min-h-0 overflow-hidden relative">
+      <div 
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto no-scrollbar min-h-0"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 28px)'
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title={showResults ? 'Savings Analysis' : 'Smart Prepay'}
+          onBack={showResults ? () => setShowResults(false) : onBack}
+          rightActions={
+            <button 
+              type="button"
+              onClick={handleShare}
+              aria-label="Share Calculation"
+              title="Share"
+              className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center"
+            >
+              <Share2 size={20} strokeWidth={2} />
+            </button>
+          }
+        />
+
+        <div className="px-6 py-4">
+          <AnimatePresence mode="wait">
           {!showResults ? (
             <motion.div
               key="edit"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
               className="space-y-4"
             >
               {/* Section 1: Current Loan Details */}
               <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm border border-gray-50 dark:border-gray-800">
-                <h2 className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3 px-1">Loan Details</h2>
+                <h2 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3 px-1">Loan Details</h2>
                 <FormRow label="Loan Amount" field="loanAmount" placeholder="e.g. 25,00,000" value={formData.loanAmount} onChange={handleInputChange} symbol="₹" />
                 <FormRow label="Interest Rate %" field="interestRate" placeholder="e.g. 8.5" value={formData.interestRate} onChange={handleInputChange} symbol="%" />
                 
                 <div className="flex items-center justify-between gap-3 py-2 border-b border-gray-50 dark:border-gray-800/50">
-                  <label className="text-[12px] font-semibold text-gray-500 dark:text-gray-400">Tenure</label>
+                  <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3]">Tenure</label>
                   <div className="flex items-center gap-2">
-                    <div className="flex bg-gray-100 dark:bg-gray-800 p-0.5 rounded-lg">
+                    <div className="flex bg-gray-100 dark:bg-gray-800/80 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700/60">
                       {['Y', 'M'].map((unit) => (
                         <button
                           key={unit}
@@ -191,10 +227,10 @@ const SmartPrepayCalculator = ({ onBack }) => {
                               });
                             }
                           }}
-                          className={`px-4 py-2 rounded-md text-[10px] font-black transition-all ${
+                          className={`px-3 py-1.5 rounded-md text-[12px] font-semibold transition-all ${
                             (unit === 'M' && formData.isMonths) || (unit === 'Y' && !formData.isMonths)
-                              ? 'bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400'
-                              : 'text-gray-400'
+                              ? 'bg-white dark:bg-gray-700 shadow-sm text-primary dark:text-blue-400 font-bold'
+                              : 'text-slate-600 dark:text-slate-300'
                           }`}
                         >
                           {unit}
@@ -208,9 +244,9 @@ const SmartPrepayCalculator = ({ onBack }) => {
                         placeholder="0"
                         value={formatNumericInput(formData.tenure)}
                         onChange={(e) => handleInputChange('tenure', parseFormattedNumber(e.target.value))}
-                        className="w-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl px-3 py-2 text-sm font-black text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-right pr-9 shadow-sm"
+                        className="w-full bg-[#F8FAFC] dark:bg-gray-800 border border-[#CBD5E1] dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-semibold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-right pr-9 shadow-sm placeholder:text-slate-500"
                       />
-                      <span className="absolute right-3 text-[8px] font-black text-gray-400 uppercase">{formData.isMonths ? "MO" : "YR"}</span>
+                      <span className="absolute right-3 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">{formData.isMonths ? "MO" : "YR"}</span>
                     </div>
                   </div>
                 </div>
@@ -219,7 +255,7 @@ const SmartPrepayCalculator = ({ onBack }) => {
 
               {/* Section 2: Prepayment Details */}
               <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm border border-gray-50 dark:border-gray-800">
-                <h2 className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3 px-1">Prepayment</h2>
+                <h2 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3 px-1">Prepayment</h2>
                 <FormRow label="Prepayment Amount" field="prepayAmount" placeholder="0.00" value={formData.prepayAmount} onChange={handleInputChange} symbol="₹" />
                 <FormRow label="After (Months)" field="prepayMonth" placeholder="e.g. 12" value={formData.prepayMonth} onChange={handleInputChange} symbol="MO" />
                 <FormRow label="Penalty %" field="penaltyPercent" placeholder="0" value={formData.penaltyPercent} onChange={handleInputChange} symbol="%" />
@@ -227,28 +263,52 @@ const SmartPrepayCalculator = ({ onBack }) => {
 
               {/* Section 3: Adjustment Strategy */}
               <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm border border-gray-50 dark:border-gray-800">
-                <h2 className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3 px-1">Strategy</h2>
-                <div className="flex bg-gray-100 dark:bg-gray-800/50 p-1 rounded-xl mb-3">
+                <h2 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3 px-1">Strategy</h2>
+                <div className="flex bg-gray-100 dark:bg-gray-800/80 p-1 rounded-xl mb-3 border border-slate-200 dark:border-slate-700/60">
                   {['Reduce EMI', 'Reduce Tenure'].map((opt) => (
                     <button
                       key={opt}
                       onClick={() => setFormData({ ...formData, strategy: opt })}
-                      className={`flex-1 py-2.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-300 ${
+                      className={`flex-1 py-2 rounded-lg text-[12px] font-semibold transition-all duration-300 ${
                         formData.strategy === opt
-                          ? 'bg-white dark:bg-gray-700 shadow-md text-blue-600 dark:text-blue-400 scale-[1.01]'
-                          : 'text-gray-400'
+                          ? 'bg-white dark:bg-gray-700 shadow-sm text-primary dark:text-blue-400 font-bold'
+                          : 'text-slate-600 dark:text-slate-300'
                       }`}
                     >
                       {opt}
                     </button>
                   ))}
                 </div>
-                <p className="text-[10px] text-gray-400 font-bold px-1 leading-relaxed flex gap-2">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold px-1 leading-relaxed flex gap-2">
                   <Info size={12} className="text-blue-500 flex-shrink-0" />
                   {formData.strategy === 'Reduce EMI' 
                     ? 'Reduce EMI, same tenure.' 
                     : 'Keep EMI, reduce tenure.'}
                 </p>
+              </div>
+
+              {/* Action Buttons Row: Reset & Calculate Savings (scrolls naturally with content) */}
+              <div 
+                className="grid gap-3 mt-4"
+                style={{
+                  gridTemplateColumns: '1fr 1.4fr'
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="h-[46px] rounded-[14px] font-semibold text-[13.5px] flex items-center justify-center gap-2 bg-[#F1F5F9] hover:bg-[#E2E8F0] dark:bg-[#1E293B] dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/60 active:scale-[0.98] transition-all cursor-pointer shadow-sm select-none"
+                >
+                  <RotateCcw size={16} strokeWidth={2.2} />
+                  <span>Reset</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCalculate}
+                  className="h-[46px] rounded-[14px] font-bold text-[13.5px] flex items-center justify-center gap-2 bg-[#2563EB] hover:bg-blue-600 text-white active:scale-[0.98] transition-all cursor-pointer shadow-md shadow-blue-500/25 select-none"
+                >
+                  <span>Calculate Savings</span>
+                </button>
               </div>
             </motion.div>
           ) : (
@@ -288,7 +348,7 @@ const SmartPrepayCalculator = ({ onBack }) => {
                   <h3 className="text-4xl font-black text-white tracking-tight">
                     {formatCurrency(results.netBenefit)}
                   </h3>
-                  <div className="mt-4 inline-flex items-center gap-2 px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-white text-[9px] font-black uppercase tracking-widest border border-white/10">
+                  <div className="mt-4 inline-flex items-center gap-2 px-4 py-1.5 bg-white/20 rounded-full text-white text-[9px] font-black uppercase tracking-widest border border-white/10">
                     <TrendingUp size={12} /> Savings Analysis
                   </div>
                 </div>
@@ -328,28 +388,21 @@ const SmartPrepayCalculator = ({ onBack }) => {
                   </div>
                 </div>
               </div>
+
+              {/* Back to Calculator Button */}
+              <button
+                type="button"
+                onClick={() => setShowResults(false)}
+                className="w-full h-[46px] rounded-[14px] font-bold text-[13.5px] flex items-center justify-center gap-2 bg-[#2563EB] hover:bg-blue-600 text-white active:scale-[0.98] transition-all cursor-pointer shadow-md shadow-blue-500/25 select-none mt-4"
+              >
+                <ArrowLeft size={16} strokeWidth={2.2} />
+                <span>Back to Calculator</span>
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
+        </div>
       </div>
-
-      {/* Footer */}
-      <footer className="p-6 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex gap-4 sticky bottom-0 z-20">
-        {!showResults ? (
-          <>
-            <button onClick={handleReset} className="btn-secondary flex-1">
-              <RotateCcw size={18} /> Reset
-            </button>
-            <button onClick={handleCalculate} className="btn-primary flex-1 shadow-lg shadow-blue-500/20">
-              Calculate Savings
-            </button>
-          </>
-        ) : (
-          <button onClick={() => setShowResults(false)} className="btn-primary w-full shadow-lg shadow-blue-500/20">
-            <ArrowLeft size={18} /> Back
-          </button>
-        )}
-      </footer>
     </div>
   );
 };

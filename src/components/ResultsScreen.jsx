@@ -4,8 +4,12 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
 import { calculateEMI, formatCurrency } from '../utils/calculatorLogic';
 import { useSettings } from '../context/SettingsContext';
 import { shareAsImage, shareAsText } from '../utils/exportUtils';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 
 const ResultsScreen = ({ data, onBack, onDetails }) => {
+  const { headerRef, handleScroll } = useHeaderScroll();
   const { currency } = useSettings();
   const p = parseFloat(data.amount);
   const r = parseFloat(data.interest);
@@ -33,16 +37,33 @@ const ResultsScreen = ({ data, onBack, onDetails }) => {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 transition-colors duration-300">
-      {/* Header */}
-      <header className="px-6 pt-14 pb-6 flex items-center gap-4 bg-white dark:bg-gray-900 sticky top-0 z-10 transition-colors duration-300">
-        <button onClick={onBack} className="p-2 -ml-2 text-gray-800 dark:text-gray-200 active:scale-90 transition-transform">
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Calculation Results</h1>
-      </header>
+    <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 transition-colors duration-300 overflow-hidden relative">
+      <div 
+        id="result-capture" 
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto no-scrollbar bg-white dark:bg-gray-900 transition-colors duration-300"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px)'
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title="Calculation Results"
+          onBack={onBack}
+          rightActions={
+            <button 
+              type="button"
+              onClick={handleShare}
+              aria-label="Share Calculation"
+              title="Share"
+              className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center"
+            >
+              <Share2 size={20} strokeWidth={2} />
+            </button>
+          }
+        />
 
-      <div id="result-capture" className="flex-1 overflow-y-auto no-scrollbar px-6 pb-24 bg-white dark:bg-gray-900 transition-colors duration-300">
+        <div className="px-6 pb-24">
         {/* Summary Card */}
         <div className="glass-card p-6 mb-8 bg-blue-600 text-white shadow-premium border-none">
           <p className="text-blue-100 text-sm font-medium mb-1">Monthly EMI</p>
@@ -110,7 +131,8 @@ const ResultsScreen = ({ data, onBack, onDetails }) => {
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 };
 
 export default ResultsScreen;

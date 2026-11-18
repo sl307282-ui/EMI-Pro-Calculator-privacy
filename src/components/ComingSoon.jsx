@@ -1,22 +1,22 @@
 import React from 'react';
-import { ChevronLeft, Construction } from 'lucide-react';
+import { Construction } from 'lucide-react';
 import { motion } from 'framer-motion';
+import AppHeader from './AppHeader';
 
 const ComingSoon = ({ onBack, title }) => {
   return (
-    <div className="flex-1 flex flex-col bg-gray-50">
-      {/* Header */}
-      <header className="px-6 pt-14 pb-4 flex items-center gap-4 bg-white/80 backdrop-blur-md sticky top-0 z-20">
-        <button 
-          onClick={onBack}
-          className="p-2 bg-white shadow-sm border border-gray-100 rounded-xl text-gray-700 active:scale-90 transition-all"
-        >
-          <ChevronLeft size={20} />
-        </button>
-        <h1 className="text-xl font-bold text-gray-900">{title || 'Coming Soon'}</h1>
-      </header>
+    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+      <AppHeader
+        title={title || 'Coming Soon'}
+        onBack={onBack}
+      />
 
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+      <div 
+        className="flex-1 flex flex-col items-center justify-center p-8 text-center"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px)'
+        }}
+      >
         <motion.div 
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}

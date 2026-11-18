@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   ChevronLeft, Copy, Delete, Divide, X, Minus, Plus, Equal, History, Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as math from 'mathjs';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
 
 const ScientificCalculator = ({ onBack }) => {
   const [display, setDisplay] = useState('0');
@@ -172,47 +175,50 @@ const ScientificCalculator = ({ onBack }) => {
   }, [display]);
 
   return (
-    <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 transition-colors duration-300 h-full overflow-hidden select-none">
-      {/* Header Bar */}
-      <header className="px-6 pt-14 pb-4 flex items-center justify-between bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 transition-colors duration-300 sticky top-0 z-20">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={onBack}
-            className="p-2 -ml-2 text-gray-800 dark:text-gray-200 active:scale-90 transition-transform"
-          >
-            <ChevronLeft size={24} />
-          </button>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Scientific</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <button onClick={handleCopy} className="p-2 text-gray-400 dark:text-gray-500 active:scale-90 transition-transform">
-              <Copy size={20} />
+    <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 h-full overflow-hidden select-none relative">
+      <AppHeader
+        title="Scientific"
+        onBack={onBack}
+        rightActions={
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <button 
+                type="button"
+                onClick={handleCopy} 
+                className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center"
+                title="Copy"
+                aria-label="Copy"
+              >
+                <Copy size={20} strokeWidth={2} />
+              </button>
+              <AnimatePresence>
+                {showToast && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 35 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute right-0 bg-gray-800 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap shadow-lg z-50"
+                  >
+                    Copied!
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+            <button 
+              type="button"
+              onClick={() => setShowHistoryModal(true)} 
+              className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center"
+              title="History"
+              aria-label="History"
+            >
+              <History size={20} strokeWidth={2} />
             </button>
-            <AnimatePresence>
-              {showToast && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 35 }}
-                  exit={{ opacity: 0 }}
-                  className="absolute right-0 bg-gray-800 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap shadow-lg z-50"
-                >
-                  Copied!
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
-          <button 
-            onClick={() => setShowHistoryModal(true)} 
-            className="p-2 text-gray-400 dark:text-gray-500 active:scale-90 transition-transform"
-          >
-            <History size={20} />
-          </button>
-        </div>
-      </header>
+        }
+      />
 
       {/* Display Area */}
-      <div className="flex-1 min-h-[140px] px-6 pt-4 pb-3 flex flex-col justify-center items-end w-full overflow-y-auto no-scrollbar bg-white dark:bg-gray-900 transition-colors duration-300">
+      <div className="flex-1 min-h-[140px] px-6 pt-4 pb-3 flex flex-col justify-center items-end w-full overflow-y-auto no-scrollbar bg-white dark:bg-gray-900">
         <div className="text-gray-400 dark:text-gray-555 text-sm font-semibold mb-2 truncate w-full text-right h-6 flex-shrink-0">
           {expression}
         </div>
@@ -226,7 +232,7 @@ const ScientificCalculator = ({ onBack }) => {
       </div>
 
       {/* Scientific Keypad */}
-      <div className="bg-[#F8F9FE] dark:bg-gray-850 p-4 grid grid-cols-5 gap-2 border-t border-gray-100 dark:border-gray-800 shadow-inner transition-colors duration-300">
+      <div className="bg-[#F8F9FE] dark:bg-gray-850 p-4 grid grid-cols-5 gap-2 border-t border-gray-100 dark:border-gray-800 shadow-inner">
         {sciButtons.map((btn, idx) => (
           <motion.button
             key={idx}
@@ -240,7 +246,10 @@ const ScientificCalculator = ({ onBack }) => {
       </div>
 
       {/* Basic Keypad */}
-      <div className="bg-white dark:bg-gray-900 p-4 grid grid-cols-4 gap-3 shadow-2xl dark:shadow-none z-10 pb-5 transition-colors duration-300">
+      <div 
+        className="bg-white dark:bg-gray-900 p-4 grid grid-cols-4 gap-3 shadow-2xl dark:shadow-none z-10"
+        style={{ paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 8px)' }}
+      >
         {basicButtons.map((btn, idx) => (
           <motion.button
             key={idx}
@@ -260,7 +269,7 @@ const ScientificCalculator = ({ onBack }) => {
 
       {/* History Slide-Up Panel */}
       <AnimatePresence>
-        {showHistoryModal && (
+        {showHistoryModal && typeof document !== 'undefined' && createPortal(
           <>
             {/* Backdrop */}
             <motion.div
@@ -268,7 +277,7 @@ const ScientificCalculator = ({ onBack }) => {
               animate={{ opacity: 0.5 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowHistoryModal(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90]"
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999]"
             />
             {/* Slide up panel */}
             <motion.div
@@ -276,7 +285,8 @@ const ScientificCalculator = ({ onBack }) => {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 250 }}
-              className="fixed bottom-0 left-0 right-0 max-h-[70%] bg-white dark:bg-gray-900 rounded-t-[2.5rem] p-6 z-[95] flex flex-col shadow-2xl border-t border-gray-100 dark:border-gray-800"
+              style={{ paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 20px)' }}
+              className="fixed bottom-0 left-0 right-0 max-h-[70%] bg-white dark:bg-gray-900 rounded-t-[2.5rem] p-6 z-[10000] flex flex-col shadow-2xl border-t border-gray-100 dark:border-gray-800"
             >
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-black text-gray-900 dark:text-white">Calculation History</h3>
@@ -327,7 +337,8 @@ const ScientificCalculator = ({ onBack }) => {
                 )}
               </div>
             </motion.div>
-          </>
+          </>,
+          document.body
         )}
       </AnimatePresence>
     </div>

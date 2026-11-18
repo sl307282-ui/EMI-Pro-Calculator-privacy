@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useLayoutEffect } from 'react';
 import { flushSync } from 'react-dom';
 import { StatusBar, Style } from '@capacitor/status-bar';
 
@@ -21,6 +21,12 @@ export const SettingsProvider = ({ children }) => {
         document.documentElement.classList.toggle('dark', isDark);
         document.body.classList.toggle('dark', isDark);
       }
+      // Immediately invoke native navigation bar / status bar sync before first paint
+      try {
+        if (typeof window !== 'undefined' && window.AndroidThemeBridge && typeof window.AndroidThemeBridge.setDarkMode === 'function') {
+          window.AndroidThemeBridge.setDarkMode(isDark);
+        }
+      } catch (e) {}
       return savedTheme;
     } catch {
       return 'light';
@@ -54,21 +60,27 @@ export const SettingsProvider = ({ children }) => {
     }
   });
 
-  // Configure Status Bar on mount
-  useEffect(() => {
+  // Synchronously configure Status Bar and Navigation Bar on mount before first paint
+  useLayoutEffect(() => {
     const isDark = theme === 'dark';
     try {
       StatusBar.setOverlaysWebView({ overlay: true });
       StatusBar.setBackgroundColor({ color: '#00000000' });
       StatusBar.setStyle({ style: isDark ? Style.Dark : Style.Light });
+      if (window.AndroidThemeBridge && typeof window.AndroidThemeBridge.setDarkMode === 'function') {
+        window.AndroidThemeBridge.setDarkMode(isDark);
+      }
     } catch (err) {
-      console.warn('Capacitor StatusBar init failed', err);
+      console.warn('Capacitor StatusBar / AndroidThemeBridge init failed', err);
     }
-  }, []);
+  }, [theme]);
 
   const toggleTheme = (newTheme) => {
     if (newTheme === theme) return;
     const isDark = newTheme === 'dark';
+    try {
+      localStorage.setItem('app_theme', newTheme);
+    } catch (e) {}
     
     if (document.startViewTransition) {
       document.startViewTransition(() => {
@@ -78,6 +90,9 @@ export const SettingsProvider = ({ children }) => {
           document.body.classList.toggle('dark', isDark);
           try {
             StatusBar.setStyle({ style: isDark ? Style.Dark : Style.Light });
+            if (window.AndroidThemeBridge && typeof window.AndroidThemeBridge.setDarkMode === 'function') {
+              window.AndroidThemeBridge.setDarkMode(isDark);
+            }
           } catch (err) {}
         });
       });
@@ -87,6 +102,9 @@ export const SettingsProvider = ({ children }) => {
       document.body.classList.toggle('dark', isDark);
       try {
         StatusBar.setStyle({ style: isDark ? Style.Dark : Style.Light });
+        if (window.AndroidThemeBridge && typeof window.AndroidThemeBridge.setDarkMode === 'function') {
+          window.AndroidThemeBridge.setDarkMode(isDark);
+        }
       } catch (err) {}
     }
   };

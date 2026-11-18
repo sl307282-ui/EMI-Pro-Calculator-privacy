@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, RotateCcw, TrendingUp, AlertCircle, Percent, Info, AlertTriangle, ChevronDown } from 'lucide-react';
+import { ChevronLeft, RotateCcw, TrendingUp, AlertCircle, Percent, Info, AlertTriangle, ChevronDown, Share2 } from 'lucide-react';
 import { formatNumericInput, parseFormattedNumber, formatCurrency } from '../utils/calculatorLogic';
+import { shareAsText } from '../utils/exportUtils';
 import VoiceInput from './VoiceInput';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 
 // Strictly populated hardcoded CPI inflation rates for India from 1980 to 2030
 const inflationData = {
@@ -19,6 +23,7 @@ const inflationData = {
 };
 
 const InflationInsights = ({ onBack }) => {
+  const { headerRef, scrollRef, handleScroll } = useHeaderScroll();
   const [amount, setAmount] = useState('');
   const [startYear, setStartYear] = useState(2018);
   const [endYear, setEndYear] = useState(2023);
@@ -107,30 +112,51 @@ const InflationInsights = ({ onBack }) => {
     });
   };
 
-  return (
-    <div className="flex-1 flex flex-col bg-slate-50 dark:bg-gray-950 overflow-hidden h-full transition-colors duration-300">
-      {/* Header */}
-      <header className="px-6 pt-14 pb-6 flex justify-between items-center bg-white dark:bg-gray-900 border-b border-slate-100 dark:border-gray-800 sticky top-0 z-20 transition-colors duration-300">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBack}
-            className="p-2 -ml-2 text-gray-800 dark:text-gray-200 hover:bg-slate-50 dark:hover:bg-gray-850 rounded-full active:scale-95 transition-all"
-            id="btn_inflation_back"
-          >
-            <ChevronLeft size={24} />
-          </button>
-          <div>
-            <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Inflation Insights</h1>
-            <p className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-widest">India CPI Projections</p>
-          </div>
-        </div>
-        <div className="w-10 h-10 rounded-2xl bg-orange-50 dark:bg-orange-950/30 flex items-center justify-center text-orange-500 dark:text-orange-400 shadow-inner">
-          <TrendingUp size={20} strokeWidth={2.5} />
-        </div>
-      </header>
+  const handleShare = () => {
+    const p = parseFormattedNumber(amount) || 100000;
+    const futureVal = results ? results.futureValue : p;
+    const diffVal = results ? results.difference : 0;
+    const shareContent = 
+      `📈 Inflation Insights (India CPI)\n` +
+      `─────────────────────────\n` +
+      `Original Amount: ₹${Number(p).toLocaleString('en-IN')} in ${startYear}\n` +
+      `Equivalent Value: ₹${Number(Math.round(futureVal)).toLocaleString('en-IN')} in ${endYear}\n` +
+      `Purchasing Power Change: ₹${Number(Math.round(diffVal)).toLocaleString('en-IN')}\n` +
+      `─────────────────────────\n` +
+      `Calculated with EMI Pro`;
+    shareAsText('Inflation Insights', shareContent);
+  };
 
-      {/* Main Container */}
-      <div className="flex-1 overflow-y-auto no-scrollbar px-6 py-6 space-y-6">
+  return (
+    <div className="flex-1 flex flex-col bg-slate-50 dark:bg-gray-950 overflow-hidden h-full relative">
+      <div 
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto no-scrollbar"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px)'
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title="Inflation Insights"
+          subtitle="India CPI Projections"
+          onBack={onBack}
+          rightActions={
+            <button 
+              type="button"
+              onClick={handleShare}
+              aria-label="Share Calculation"
+              title="Share"
+              className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center"
+            >
+              <Share2 size={20} strokeWidth={2} />
+            </button>
+          }
+        />
+
+        {/* Main Container */}
+        <div className="px-6 py-6 space-y-6">
 
         {/* Quick Intro Banner - Compact Breathtaking Royal Blue AI Glassmorphic Banner */}
         {!results && (
@@ -449,6 +475,7 @@ const InflationInsights = ({ onBack }) => {
           )}
         </AnimatePresence>
 
+        </div>
       </div>
     </div>
   );

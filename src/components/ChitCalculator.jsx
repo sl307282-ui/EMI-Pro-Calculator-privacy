@@ -11,6 +11,9 @@ import {
   formatNumericInput, 
   parseFormattedNumber 
 } from '../utils/calculatorLogic';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 import { shareAsText } from '../utils/exportUtils';
 
 const InputRow = ({ label, field, symbol, isNumeric = true, readOnly = false, badge, formData, setFormData, monthlyInstallment }) => (
@@ -41,6 +44,7 @@ const InputRow = ({ label, field, symbol, isNumeric = true, readOnly = false, ba
 );
 
 const ChitCalculator = ({ onBack }) => {
+  const { headerRef, scrollRef, handleScroll } = useHeaderScroll();
   const [formData, setFormData] = useState({
     totalAmount: '100000',
     members: '20',
@@ -125,23 +129,36 @@ const ChitCalculator = ({ onBack }) => {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-300 overflow-hidden h-full">
-      {/* Header */}
-      <header className="px-6 pt-14 pb-4 flex items-center bg-white dark:bg-gray-900 border-b border-gray-50 dark:border-gray-800 sticky top-0 z-20 transition-colors duration-300">
-        <button 
-          type="button"
-          onClick={handleBackClick} 
-          className="p-2 -ml-2 text-gray-600 dark:text-gray-200 active:scale-90 transition-transform"
-        >
-          <ChevronLeft size={24} className="pointer-events-none" />
-        </button>
-        <h1 className="ml-4 text-xl font-bold text-gray-900 dark:text-white animate-fade-in">Chit Calculator</h1>
-      </header>
+    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden h-full relative">
+      <div 
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto no-scrollbar"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px)'
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title="Chit Fund Calculator"
+          onBack={handleBackClick}
+          rightActions={
+            <button 
+              type="button"
+              onClick={handleShare}
+              aria-label="Share Calculation"
+              title="Share"
+              className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center"
+            >
+              <Share2 size={20} strokeWidth={2} />
+            </button>
+          }
+        />
 
-      <div className="flex-1 overflow-y-auto no-scrollbar p-6">
+        <div className="p-6">
         {!showResults ? (
           <>
-            <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-6 shadow-soft border border-gray-100/50 dark:border-gray-800 mb-8 transition-colors duration-300">
+            <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-6 shadow-soft border border-gray-100/50 dark:border-gray-800 mb-8">
               <InputRow label="Total Chit Amount" field="totalAmount" symbol="₹" formData={formData} setFormData={setFormData} monthlyInstallment={monthlyInstallment} />
               <InputRow label="Total Members" field="members" formData={formData} setFormData={setFormData} monthlyInstallment={monthlyInstallment} />
               <InputRow label="Monthly Installment" field="monthlyInstallment" readOnly={true} badge="Auto" formData={formData} setFormData={setFormData} monthlyInstallment={monthlyInstallment} />
@@ -294,6 +311,7 @@ const ChitCalculator = ({ onBack }) => {
             </motion.div>
           )
         )}
+        </div>
       </div>
     </div>
   );

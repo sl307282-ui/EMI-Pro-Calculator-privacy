@@ -6,7 +6,8 @@ import {
   RefreshCw, LayoutGrid, Sigma,
   Ruler, Map, ChevronRight, ArrowRight, Lightbulb, Wallet,
   Vault, PiggyBank, ShieldCheck, Percent, Landmark, Cpu, Smartphone, Sparkles, Crown,
-  Sun, Moon, Menu, X, Settings, Star, Share2, DollarSign, Globe, Pencil
+  Sun, Moon, Menu, X, Settings, Star, Share2, DollarSign, Globe, Pencil, Layers,
+  Building2, CreditCard, Sprout, Receipt, LineChart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Share } from '@capacitor/share';
@@ -31,6 +32,12 @@ const getToolIconStyles = (id) => {
       return 'bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] text-white';
     case 'sip-growth':
       return 'bg-gradient-to-br from-[#06b6d4] to-[#10b981] text-white';
+    case 'wealth-planner':
+      return 'bg-gradient-to-br from-[#10b981] to-[#0d9488] text-white';
+    case 'rent-buy':
+      return 'bg-gradient-to-br from-[#0d9488] to-[#047857] text-white';
+    case 'card-trap':
+      return 'bg-gradient-to-br from-[#e11d48] to-[#be123c] text-white';
     case 'advance':
       return 'bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white';
     case 'compare':
@@ -47,6 +54,14 @@ const getToolIconStyles = (id) => {
       return 'bg-gradient-to-br from-[#22c55e] to-[#16a34a] text-white';
     case 'quick':
       return 'bg-gradient-to-br from-[#facc15] to-[#f97316] text-white';
+    case 'loan-split':
+      return 'bg-gradient-to-br from-[#f59e0b] to-[#d97706] text-white';
+    case 'tax-salary':
+      return 'bg-gradient-to-br from-[#2563eb] to-[#4f46e5] text-white';
+    case 'retirement':
+      return 'bg-gradient-to-br from-[#7c3aed] to-[#6d28d9] text-white';
+    case 'smart-roi':
+      return 'bg-gradient-to-br from-[#f59e0b] to-[#ea580c] text-white';
     case 'refinance':
       return 'bg-gradient-to-br from-[#0d9488] to-[#0f766e] text-white';
     case 'standard':
@@ -67,15 +82,15 @@ const getToolIconStyles = (id) => {
 const GridItem = ({ action, onNavigate, language }) => {
   return (
     <div
-      className="bg-transparent flex flex-col items-center justify-center p-1 select-none"
+      className="bg-transparent flex flex-col items-center justify-start p-0.5 select-none cursor-pointer active:scale-95 transition-transform"
       onClick={() => {
         onNavigate(action.route, action.id === 'emi' ? t('emi', language) : action.id === 'profile' ? t('loan_tracker', language) : action.label);
       }}
     >
-      <div className={`w-14 h-14 ${getToolIconStyles(action.id)} rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/5 dark:shadow-none flex-shrink-0 mb-2.5`}>
+      <div className={`w-14 h-14 ${getToolIconStyles(action.id)} rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/5 dark:shadow-none flex-shrink-0 mb-2`}>
         <action.icon size={26} strokeWidth={2.2} className="text-white" />
       </div>
-      <span className="block text-[11px] font-black text-gray-900 dark:text-white leading-tight px-1 text-center">
+      <span className="block text-[12px] font-semibold text-gray-900 dark:text-white leading-[1.25] text-center w-full px-0.5 line-clamp-2">
         {action.id === 'emi' ? t('emi', language) : action.id === 'profile' ? t('loan_tracker', language) : action.label}
       </span>
     </div>
@@ -100,12 +115,31 @@ const HomeScreen = ({ onNavigate, onNotifications, notificationCount, onInstall 
       }
     };
     getVersion();
+
+    const idleCallback = window.requestIdleCallback || ((cb) => setTimeout(cb, 100));
+    const handle = idleCallback(() => {
+      try {
+        localStorage.getItem('loan_profiles');
+        localStorage.getItem('emi_quick_calc');
+        localStorage.getItem('home_icon_order');
+      } catch (e) {
+        // ignore
+      }
+    });
+    return () => {
+      if (window.cancelIdleCallback && typeof handle === 'number') {
+        window.cancelIdleCallback(handle);
+      }
+    };
   }, []);
 
   const quickActions = useMemo(() => {
     const defaultActions = [
       { id: 'emi', icon: Calculator, label: t('emi', language), sub: 'EMI & Totals', route: 'INPUT' },
       { id: 'sip-growth', icon: SIPGrowthIcon, label: t('sip_growth', language), sub: t('sip_growth_sub', language), route: 'SIP_CALC' },
+      { id: 'wealth-planner', icon: Sprout, label: t('wealth_planner', language) || 'Wealth Planner', sub: t('wealth_planner_sub', language) || 'SWP, Goal & Hybrid', route: 'WEALTH_PLANNER' },
+      { id: 'rent-buy', icon: Building2, label: t('rent_vs_buy', language) || 'Rent vs. Buy', sub: 'Home Wealth Analyzer', route: 'RENT_VS_BUY' },
+      { id: 'card-trap', icon: CreditCard, label: t('card_trap', language) || 'Card Trap', sub: 'Min-Due Calculator', route: 'CARD_TRAP' },
       { id: 'advance', icon: FilePlus, label: t('advance_emi', language), sub: t('advance_emi_sub', language), route: 'ADVANCE_EMI' },
       { id: 'compare', icon: Scale, label: t('compare_loans', language), sub: t('compare_loans_sub', language), route: 'COMPARE_INPUT' },
       { id: 'smart-prepay', icon: Sparkles, label: t('smart_prepay', language), sub: t('smart_prepay_sub', language), route: 'SMART_PREPAY' },
@@ -118,27 +152,31 @@ const HomeScreen = ({ onNavigate, onNotifications, notificationCount, onInstall 
       { id: 'standard', icon: LayoutGrid, label: t('standard_calc', language), sub: t('standard_calc_sub', language), route: 'STANDARD_CALC' },
       { id: 'scientific', icon: Sigma, label: t('scientific_calc', language), sub: t('scientific_calc_sub', language), route: 'SCIENTIFIC_CALC' },
       { id: 'unit', icon: Ruler, label: t('unit_converter', language), sub: t('unit_converter_sub', language), route: 'UNIT_CONVERTER' },
-      { id: 'land', icon: Map, label: 'Land Purchase', sub: 'Calculator', route: 'LAND_PURCHASE' },
-      { id: 'chit', icon: Wallet, label: 'Chit Fund', sub: 'Calculator', route: 'CHIT_CALCULATOR' },
+      { id: 'loan-split', icon: Layers, label: t('loan_split', language) || 'Loan Split', sub: 'Gold, Car & Home', route: 'LOAN_SPLIT' },
+      { id: 'tax-salary', icon: Receipt, label: t('tax_salary', language) || 'Tax & Salary', sub: t('tax_salary_sub', language) || 'Income Tax, CTC & GST', route: 'TAX_SALARY' },
+      { id: 'retirement', icon: ShieldCheck, label: t('retirement', language) || 'Retirement', sub: t('retirement_sub', language) || 'NPS, EPF & Gratuity', route: 'RETIREMENT' },
+      { id: 'smart-roi', icon: LineChart, label: t('smart_roi', language) || 'Smart ROI', sub: t('smart_roi_sub', language) || 'CAGR, Real Return & Doubling', route: 'SMART_ROI' },
     ];
 
     try {
       const saved = localStorage.getItem('home_icon_order');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
+        if (Array.isArray(parsed) && parsed.length > 0) {
           const sorted = [];
           parsed.forEach(id => {
             const action = defaultActions.find(a => a.id === id);
             if (action) sorted.push(action);
           });
-          // Append any actions not present in the saved order just in case
+          // Also append any newly introduced default action not yet in user's saved order
           defaultActions.forEach(action => {
-            if (!sorted.find(a => a.id === action.id)) {
+            if (!sorted.some(s => s.id === action.id)) {
               sorted.push(action);
             }
           });
-          return sorted;
+          if (sorted.length > 0) {
+            return sorted;
+          }
         }
       }
     } catch (e) {
@@ -171,22 +209,28 @@ const HomeScreen = ({ onNavigate, onNotifications, notificationCount, onInstall 
     }
   };
 
-  const [showAll, setShowAll] = useState(false);
-  useEffect(() => {
-    console.log("DOM DIAGNOSTIC: HomeScreen mounted");
-    return () => console.log("DOM DIAGNOSTIC: HomeScreen unmounted");
-  }, []);
-
-
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTipIndex, setActiveTipIndex] = useState(0);
-  const seeMoreRef = React.useRef(null);
-  const [scrollOpacity, setScrollOpacity] = useState(0);
+
+  // Clean State-Driven Scroll Shrink (GPU-only, pure native scroll)
+  const [isScrolled, setIsScrolled] = useState(false);
+  const scrollContainerRef = React.useRef(null);
+
+  useEffect(() => {
+    setIsScrolled(false);
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, []);
+
   const handleScroll = (e) => {
     const scrollTop = e.currentTarget.scrollTop;
-    const opacity = Math.min(0.7, (scrollTop / 60) * 0.7);
-    setScrollOpacity(opacity);
+    if (!isScrolled && scrollTop > 40) {
+      setIsScrolled(true);
+    } else if (isScrolled && scrollTop < 10) {
+      setIsScrolled(false);
+    }
   };
 
   const filteredActions = quickActions.filter(action => {
@@ -196,7 +240,7 @@ const HomeScreen = ({ onNavigate, onNotifications, notificationCount, onInstall 
       sub.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
-  const visibleActions = showAll ? filteredActions : filteredActions.slice(0, 9);
+  const visibleActions = filteredActions;
 
   const tipsData = [
     {
@@ -262,215 +306,294 @@ const HomeScreen = ({ onNavigate, onNotifications, notificationCount, onInstall 
 
   return (
     <div className="flex-1 flex flex-col bg-transparent overflow-hidden h-full relative">
-      {/* Header (Locked - Does not scroll) */}
-      <header
-        style={{
-          backgroundColor: theme === 'dark'
-            ? `rgba(17, 24, 39, ${scrollOpacity * 0.4})`
-            : `rgba(255, 255, 255, ${scrollOpacity * 0.4})`,
-          backdropFilter: scrollOpacity > 0 ? `blur(${scrollOpacity * 16}px)` : 'none',
-          WebkitBackdropFilter: scrollOpacity > 0 ? `blur(${scrollOpacity * 16}px)` : 'none',
-        }}
-        className={`absolute top-0 left-0 right-0 px-6 pt-14 pb-4 flex justify-between items-center transition-all duration-200 z-30 ${scrollOpacity > 0
-            ? 'shadow-sm border-b border-gray-100 dark:border-gray-800'
-            : 'border-b border-transparent'
-          }`}
-      >
-        <AnimatePresence mode="wait">
-          {!isSearchOpen ? (
-            <motion.div
-              key="logo-title"
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              className="flex-1"
-            >
-              <div className="flex flex-col">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setIsDrawerOpen(true)}
-                    className="text-gray-800 dark:text-white active:scale-90 transition-all flex-shrink-0 p-0.5"
-                    aria-label="Open menu"
-                  >
-                    <Menu size={22} />
-                  </button>
-                  <h1 className="text-base font-black tracking-wider text-gray-900 dark:text-white uppercase leading-none mt-[1px]">
-                    EMI <span className="text-blue-600 dark:text-blue-400">PRO</span>
-                  </h1>
-                </div>
-                <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 mt-1 pl-[30px]">Plan smart, calculate better, save more.</p>
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="search-bar"
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: '100%', opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              className="flex-1 mr-4"
-            >
-              <div className="relative flex items-center">
-                <Search size={18} className="absolute left-4 text-gray-400" />
-                <input
-                  autoFocus
-                  type="text"
-                  placeholder="Search tools & calculators..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-blue-100/50 dark:border-gray-700 rounded-2xl py-3 pl-11 pr-10 text-sm font-bold text-gray-900 dark:text-white outline-none focus:border-blue-500/20 transition-all"
-                />
-                <button
-                  onClick={() => {
-                    setIsSearchOpen(false);
-                    setSearchQuery('');
-                  }}
-                  className="absolute right-3 text-[10px] font-black text-gray-400 bg-gray-200/50 dark:bg-gray-700 px-2 py-1 rounded-lg uppercase"
-                >
-                  Esc
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className={`flex gap-3 transition-all ${isSearchOpen ? 'w-auto' : ''}`}>
-          {!isSearchOpen && (
-            <button
-              onClick={() => setIsSearchOpen(true)}
-              className="p-2.5 bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 rounded-full text-gray-700 dark:text-gray-300 active:scale-90 transition-all header-right-btn"
-            >
-              <Search size={22} />
-            </button>
-          )}
-          <button
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="p-2.5 bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 rounded-full text-gray-700 dark:text-gray-300 active:scale-90 transition-all header-right-btn"
-          >
-            {theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}
-          </button>
-          <button
-            onClick={onNotifications}
-            className="p-2.5 bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 rounded-full text-gray-700 dark:text-gray-300 active:scale-90 transition-all relative header-right-btn"
-          >
-            <Bell size={22} />
-            {notificationCount > 0 && (
-              <span className="absolute top-2 right-2 w-4 h-4 bg-red-500 rounded-full border-2 border-white dark:border-gray-900 text-[8px] font-black text-white flex items-center justify-center">
-                {notificationCount}
-              </span>
-            )}
-          </button>
-        </div>
-      </header>
-
-      {/* Scrollable Content */}
+      {/* Scrollable Content with Native Sticky Header */}
       <div
+        ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto no-scrollbar pt-28 pb-36 bg-transparent transition-colors duration-300"
+        className="flex-1 overflow-y-auto no-scrollbar bg-transparent transition-colors duration-300"
+        style={{
+          WebkitOverflowScrolling: 'touch',
+          overscrollBehaviorY: 'contain',
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 88px)',
+        }}
       >
-        {/* Quick EMI Calculator – Premium Promotional Banner */}
-        {!isSearchOpen && (
-          <section className="px-5 mt-4 mb-2">
-            <QuickEMIBanner onNavigate={onNavigate} />
-          </section>
-        )}
-
-        {/* Main Grid */}
-        <section className="px-6 mt-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-base font-black text-gray-900 dark:text-white">{t('financial_tools', language)}</h3>
-            <button
-              onClick={() => onNavigate('DASHBOARD_CUSTOMIZER')}
-              className="p-2 bg-blue-50/50 hover:bg-blue-50 dark:bg-blue-950/20 dark:hover:bg-blue-950/40 border border-blue-100/50 dark:border-blue-900/30 rounded-full text-blue-600 dark:text-blue-400 active:scale-90 transition-all cursor-pointer flex items-center justify-center shadow-sm"
-              title={t('customize_home', language)}
-            >
-              <Pencil size={15} className="stroke-[2.5]" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-3 gap-y-6 gap-x-4 mb-6">
-            {visibleActions.length > 0 ? (
-              visibleActions.map((action) => (
-                <GridItem
-                  key={action.id}
-                  action={action}
-                  onNavigate={onNavigate}
-                  language={language}
-                />
-              ))
-            ) : (
-              <div className="col-span-full py-12 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
-                <Search size={40} className="mb-4 opacity-20" />
-                <p className="text-sm font-bold">No calculators found for "{searchQuery}"</p>
-                <p className="text-[11px] mt-1 font-medium">Try searching for EMI, Loan or ROI</p>
-              </div>
-            )}
-          </div>
-
-          {/* Relocated See More Button Below Icons (Simple Version) */}
-          {!searchQuery && (
-            <div className="flex justify-center">
-              <button
-                onClick={() => setShowAll(!showAll)}
-                className="text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-wider active:opacity-60 transition-all py-2"
-              >
-                {showAll ? 'Show Less' : t('see_all', language)}
-              </button>
-            </div>
-          )}
-        </section>
-
-        {/* Smart Tip Card Swipeable Carousel */}
-        <section className="px-6 mt-8 pb-8">
-          <motion.div
-            drag="x"
-            dragConstraints={{ left: 0, right: 0 }}
-            dragElastic={0.2}
-            onDragEnd={handleDragEnd}
-            className={`relative overflow-hidden p-5 pb-8 flex items-start gap-4 rounded-[2.2rem] border transition-colors duration-500 cursor-grab active:cursor-grabbing select-none ${currentTip.cardBg}`}
-          >
-            {/* Tip content transition */}
-            <AnimatePresence mode="wait">
+        {/* Header (Sticky Top App Bar) */}
+        <header
+          style={{
+            background: theme === 'dark' 
+              ? 'linear-gradient(180deg, #172554 0%, #1E293B 100%)' 
+              : 'linear-gradient(180deg, #DBEAFE 0%, #E0EFFE 100%)',
+            paddingTop: `calc(max(var(--safe-top, 0px), 38px) + ${isScrolled ? 6 : 12}px)`,
+            paddingBottom: `${isScrolled ? 6 : 12}px`,
+            borderBottom: theme === 'dark' 
+              ? '1px solid rgba(96, 165, 250, 0.18)' 
+              : '1px solid rgba(37, 99, 235, 0.18)',
+            boxShadow: isScrolled
+              ? (theme === 'dark' ? '0 4px 20px -2px rgba(0, 0, 0, 0.4)' : '0 4px 16px -2px rgba(15, 23, 42, 0.05)')
+              : 'none',
+            transform: 'translateZ(0)',
+            backfaceVisibility: 'hidden',
+            WebkitBackfaceVisibility: 'hidden',
+            transition: 'padding 0.25s cubic-bezier(0.22, 1, 0.36, 1), background 0.25s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s cubic-bezier(0.22, 1, 0.36, 1)',
+          }}
+          className="sticky top-0 left-0 right-0 px-6 flex justify-between items-center z-50"
+        >
+          <AnimatePresence mode="wait">
+            {!isSearchOpen ? (
               <motion.div
-                key={activeTipIndex}
-                initial={{ opacity: 0, x: 10 }}
+                key="logo-title"
+                initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -10 }}
-                transition={{ duration: 0.2 }}
-                className="flex items-start gap-4.5 w-full"
+                className="flex-1"
               >
-                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-lg flex-shrink-0 mt-0.5 transition-all ${currentTip.iconBg}`}>
-                  <CurrentIcon size={20} />
-                </div>
-                <div className="flex-1 flex flex-col items-start gap-2.5 min-w-0">
-                  <div className="w-full">
-                    <h4 className={`text-[14px] font-black tracking-tight mb-1 ${currentTip.titleColor}`}>{currentTip.title}</h4>
-                    {currentTip.content}
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-2 origin-left">
+                    <button
+                      type="button"
+                      onClick={() => setIsDrawerOpen(true)}
+                      className="text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 flex-shrink-0 p-1 cursor-pointer select-none"
+                      aria-label="Open menu"
+                      title="Open menu"
+                    >
+                      <Menu size={22} strokeWidth={2} />
+                    </button>
+                    <h1
+                      style={{
+                        transform: isScrolled ? 'scale(0.92)' : 'scale(1)',
+                        transformOrigin: 'left center',
+                        transition: 'transform 0.25s cubic-bezier(0.22, 1, 0.36, 1)',
+                      }}
+                      className="text-base font-black tracking-wider text-[#0F172A] dark:text-[#F8FAFC] uppercase leading-none mt-[1px]"
+                    >
+                      EMI <span className="text-blue-600 dark:text-blue-400">PRO</span>
+                    </h1>
                   </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onNavigate(currentTip.actionRoute); }}
-                    className={`flex items-center gap-1 text-[11px] font-black bg-white dark:bg-gray-800 px-3.5 py-1.8 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm hover:bg-white dark:hover:bg-gray-800 active:scale-95 transition-all mt-0.5 ${currentTip.titleColor}`}
+                  <div
+                    style={{
+                      maxHeight: isScrolled ? '0px' : '24px',
+                      opacity: isScrolled ? 0 : 1,
+                      marginTop: isScrolled ? '0px' : '4px',
+                      transition: 'max-height 0.25s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s cubic-bezier(0.22, 1, 0.36, 1), margin-top 0.25s cubic-bezier(0.22, 1, 0.36, 1)',
+                    }}
+                    className="overflow-hidden"
                   >
-                    {currentTip.actionLabel} <ChevronRight size={13} />
+                    <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 pl-[30px] whitespace-nowrap">
+                      Plan smart, calculate better, save more.
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="search-bar"
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: '100%', opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                className="flex-1 mr-4"
+              >
+                <div className="relative flex items-center">
+                  <Search size={18} className="absolute left-4 text-gray-400" />
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Search tools & calculators..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-blue-100/50 dark:border-gray-700 rounded-2xl py-3 pl-11 pr-10 text-sm font-bold text-gray-900 dark:text-white outline-none focus:border-blue-500/20 transition-all"
+                  />
+                  <button
+                    onClick={() => {
+                      setIsSearchOpen(false);
+                      setSearchQuery('');
+                    }}
+                    className="absolute right-3 text-[10px] font-black text-gray-400 bg-gray-200/50 dark:bg-gray-700 px-2 py-1 rounded-lg uppercase"
+                  >
+                    Esc
                   </button>
                 </div>
               </motion.div>
-            </AnimatePresence>
+            )}
+          </AnimatePresence>
 
-            {/* Dots Pagination */}
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
-              {[0, 1, 2].map((idx) => (
-                <button
-                  key={idx}
-                  onClick={(e) => { e.stopPropagation(); setActiveTipIndex(idx); }}
-                  className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${activeTipIndex === idx
-                      ? idx === 0 ? 'bg-emerald-500 w-3' : idx === 1 ? 'bg-blue-500 w-3' : 'bg-purple-500 w-3'
-                      : 'bg-gray-300 dark:bg-gray-700'
-                    }`}
-                />
-              ))}
+          <div
+            className={`flex items-center origin-right ${isSearchOpen ? 'w-auto' : ''}`}
+            style={{
+              gap: isScrolled ? '4px' : '6px',
+              transition: 'gap 0.25s cubic-bezier(0.22, 1, 0.36, 1)',
+            }}
+          >
+            {!isSearchOpen && (
+              <button
+                type="button"
+                onClick={() => setIsSearchOpen(true)}
+                aria-label="Search"
+                title="Search"
+                style={{
+                  width: isScrolled ? '32px' : '36px',
+                  height: isScrolled ? '32px' : '36px',
+                  transition: 'all 0.25s cubic-bezier(0.22, 1, 0.36, 1)',
+                }}
+                className="bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center p-0 rounded-full header-right-btn"
+              >
+                <Search size={20} strokeWidth={2} />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              aria-label="Toggle theme"
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              style={{
+                width: isScrolled ? '32px' : '36px',
+                height: isScrolled ? '32px' : '36px',
+                transition: 'all 0.25s cubic-bezier(0.22, 1, 0.36, 1)',
+              }}
+              className="bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center p-0 rounded-full header-right-btn"
+            >
+              {theme === 'dark' ? (
+                <Sun size={20} strokeWidth={2} />
+              ) : (
+                <Moon size={20} strokeWidth={2} />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={onNotifications}
+              aria-label="Notifications"
+              title="Notifications"
+              style={{
+                width: isScrolled ? '32px' : '36px',
+                height: isScrolled ? '32px' : '36px',
+                transition: 'all 0.25s cubic-bezier(0.22, 1, 0.36, 1)',
+              }}
+              className="bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center relative p-0 rounded-full header-right-btn"
+            >
+              <Bell size={20} strokeWidth={2} />
+              {notificationCount > 0 && (
+                <span
+                  style={{
+                    backgroundColor: '#EF4444',
+                    color: '#FFFFFF',
+                    border: theme === 'dark' ? '1.5px solid #172554' : '1.5px solid #DBEAFE',
+                    top: isScrolled ? '1px' : '2px',
+                    right: isScrolled ? '1px' : '2px',
+                    transition: 'all 0.25s cubic-bezier(0.22, 1, 0.36, 1)',
+                  }}
+                  className="absolute min-w-[15px] h-[15px] px-1 rounded-full text-[9px] font-black flex items-center justify-center leading-none shadow-sm pointer-events-none"
+                >
+                  {notificationCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </header>
+
+        <div className="flex flex-col justify-start">
+          {/* Quick EMI Calculator – Hero Card */}
+          {!isSearchOpen && (
+            <section
+              style={{
+                transform: 'translateZ(0)',
+                backfaceVisibility: 'hidden',
+                WebkitBackfaceVisibility: 'hidden',
+              }}
+              className="px-5 h-[140px] mt-2.5 mb-2 flex-shrink-0 relative"
+            >
+              <QuickEMIBanner
+                onNavigate={onNavigate}
+              />
+            </section>
+          )}
+
+          {/* Main Grid */}
+          <section className="px-6 mt-2">
+            <div className="flex justify-between items-center mb-3.5">
+              <h3 className="text-[17px] font-bold text-gray-900 dark:text-white tracking-tight leading-none">
+                {t('financial_tools', language)}
+              </h3>
+              <button
+                onClick={() => onNavigate('DASHBOARD_CUSTOMIZER')}
+                className="p-2 bg-blue-50/50 hover:bg-blue-50 dark:bg-blue-950/20 dark:hover:bg-blue-950/40 border border-blue-100/50 dark:border-blue-900/30 rounded-full text-blue-600 dark:text-blue-400 active:scale-90 transition-all cursor-pointer flex items-center justify-center shadow-sm"
+                title={t('customize_home', language)}
+              >
+                <Pencil size={15} className="stroke-[2.5]" />
+              </button>
             </div>
-          </motion.div>
-        </section>
+
+            <div className="grid grid-cols-3 gap-y-5 gap-x-3">
+              {visibleActions.length > 0 ? (
+                visibleActions.map((action) => (
+                  <GridItem
+                    key={action.id}
+                    action={action}
+                    onNavigate={onNavigate}
+                    language={language}
+                  />
+                ))
+              ) : (
+                <div className="col-span-full py-12 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
+                  <Search size={40} className="mb-4 opacity-20" />
+                  <p className="text-sm font-bold">No calculators found for "{searchQuery}"</p>
+                  <p className="text-[11px] mt-1 font-medium">Try searching for EMI, Loan or ROI</p>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Smart Tip Card Swipeable Carousel */}
+          <section className="px-6 mt-6">
+            <motion.div
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.2}
+              onDragEnd={handleDragEnd}
+              className={`relative overflow-hidden p-4.5 pb-7 flex items-start gap-4 rounded-[2.2rem] border transition-colors duration-500 cursor-grab active:cursor-grabbing select-none ${currentTip.cardBg}`}
+            >
+              {/* Tip content transition */}
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTipIndex}
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex items-start gap-4.5 w-full"
+                >
+                  <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-lg flex-shrink-0 mt-0.5 transition-all ${currentTip.iconBg}`}>
+                    <CurrentIcon size={20} />
+                  </div>
+                  <div className="flex-1 flex flex-col items-start gap-2.5 min-w-0">
+                    <div className="w-full">
+                      <h4 className={`text-[14px] font-black tracking-tight mb-1 ${currentTip.titleColor}`}>{currentTip.title}</h4>
+                      {currentTip.content}
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onNavigate(currentTip.actionRoute); }}
+                      className={`flex items-center gap-1 text-[11px] font-black bg-white dark:bg-gray-800 px-3.5 py-1.8 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm hover:bg-white dark:hover:bg-gray-800 active:scale-95 transition-all mt-0.5 ${currentTip.titleColor}`}
+                    >
+                      {currentTip.actionLabel} <ChevronRight size={13} />
+                    </button>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+
+              {/* Dots Pagination */}
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+                {[0, 1, 2].map((idx) => (
+                  <button
+                    key={idx}
+                    onClick={(e) => { e.stopPropagation(); setActiveTipIndex(idx); }}
+                    className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${activeTipIndex === idx
+                        ? idx === 0 ? 'bg-emerald-500 w-3' : idx === 1 ? 'bg-blue-500 w-3' : 'bg-purple-500 w-3'
+                        : 'bg-gray-300 dark:bg-gray-700'
+                      }`}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          </section>
+        </div>
       </div>
 
       {/* Smart Navigation Drawer Overlay */}
@@ -485,7 +608,7 @@ const HomeScreen = ({ onNavigate, onNotifications, notificationCount, onInstall 
                 animate={{ opacity: 0.4 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setIsDrawerOpen(false)}
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90]"
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999]"
               />
 
               {/* Drawer Panel */}
@@ -495,7 +618,7 @@ const HomeScreen = ({ onNavigate, onNotifications, notificationCount, onInstall 
                 animate={{ x: 0 }}
                 exit={{ x: '-100%' }}
                 transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-                className="fixed left-0 top-0 bottom-0 w-[290px] bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 shadow-2xl z-[95] flex flex-col pt-16 pb-8 px-6 overflow-y-auto"
+                className="fixed left-0 top-0 bottom-0 w-[290px] bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 shadow-2xl z-[10000] flex flex-col pt-16 pb-8 px-6 overflow-y-auto"
               >
                 {/* Close Button & Branding */}
                 <div className="flex justify-between items-center mb-8">

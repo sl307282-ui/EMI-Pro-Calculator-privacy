@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, X, Calendar as CalendarIcon } from 'lucide-react';
 
@@ -79,14 +80,14 @@ const PremiumDatePicker = ({ isOpen, onClose, onSelect, initialDate }) => {
 
   return (
     <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-6">
+      {isOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-6">
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-gray-900/60 backdrop-blur-md"
+            className="fixed inset-0 bg-gray-900/60 backdrop-blur-md"
           />
 
           <motion.div
@@ -94,7 +95,7 @@ const PremiumDatePicker = ({ isOpen, onClose, onSelect, initialDate }) => {
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="relative w-full max-w-sm bg-white dark:bg-gray-900 rounded-t-[2.5rem] sm:rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/20 dark:border-gray-800"
+            className="relative w-full max-w-sm bg-white dark:bg-gray-900 rounded-t-[2.5rem] sm:rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/20 dark:border-gray-800 z-[10000]"
           >
             {/* Header */}
             <div className="p-6 pb-4 flex justify-between items-center border-b border-gray-50 dark:border-gray-800">
@@ -227,7 +228,10 @@ const PremiumDatePicker = ({ isOpen, onClose, onSelect, initialDate }) => {
             </div>
 
             {/* Footer Actions */}
-            <div className="p-6 border-t border-gray-50 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-800/20">
+            <div 
+              style={{ paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 24px)' }}
+              className="p-6 border-t border-gray-50 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-800/20"
+            >
               <button
                 onClick={handleConfirm}
                 className="w-full py-4 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-primary/20 active:scale-95 transition-all"
@@ -236,7 +240,8 @@ const PremiumDatePicker = ({ isOpen, onClose, onSelect, initialDate }) => {
               </button>
             </div>
           </motion.div>
-        </div>
+        </div>,
+        document.body
       )}
     </AnimatePresence>
   );

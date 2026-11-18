@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
-import { ChevronLeft, RotateCcw } from 'lucide-react';
+import { ChevronLeft, RotateCcw, Share2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   formatNumericInput, 
   parseFormattedNumber 
 } from '../utils/calculatorLogic';
+import { shareAsText } from '../utils/exportUtils';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 
 const PrePaymentROI = ({ onBack }) => {
+  const { headerRef, scrollRef, handleScroll } = useHeaderScroll();
   const [mode, setMode] = useState('prepayment'); // 'prepayment' or 'roi'
   const [formData, setFormData] = useState({
     outstanding: '1000000',
@@ -86,31 +91,63 @@ const PrePaymentROI = ({ onBack }) => {
     }).format(Math.round(val));
   };
 
-  return (
-    <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden">
-      <header className="px-6 pt-14 pb-4 flex items-center gap-4 bg-white sticky top-0 z-20 shadow-sm">
-        <button onClick={onBack} className="p-2 -ml-2 text-gray-800 active:scale-90 transition-transform">
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className="text-xl font-bold text-gray-900">Revised EMI & Tenure</h1>
-      </header>
+  const handleShare = () => {
+    const text = `📊 Revised EMI & Tenure (${mode === 'prepayment' ? 'Pre-Payment' : 'Revised ROI'})\n` +
+                 `─────────────────────────\n` +
+                 `Outstanding Loan: ₹${formatCurrency(parseFormattedNumber(formData.outstanding) || 1000000)}\n` +
+                 `Current Rate: ${formData.rate}%\n` +
+                 `Current EMI: ₹${formatCurrency(parseFormattedNumber(formData.emi) || 21247)}\n` +
+                 (mode === 'prepayment' 
+                   ? `Prepayment: ₹${formatCurrency(parseFormattedNumber(formData.prepayment) || 100000)}\n` 
+                   : `Revised Rate: ${formData.revisedRate}%\n`) +
+                 `─────────────────────────\n` +
+                 `Calculated with EMI Pro`;
+    shareAsText('Revised EMI & Tenure', text);
+  };
 
-      <div className="flex-1 overflow-y-auto no-scrollbar p-6 space-y-6 pb-24">
+  return (
+    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden h-full relative">
+      <div 
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto no-scrollbar"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px)'
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title="Revised EMI & Tenure"
+          onBack={onBack}
+          rightActions={
+            <button 
+              type="button"
+              onClick={handleShare}
+              aria-label="Share Calculation"
+              title="Share"
+              className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center"
+            >
+              <Share2 size={20} strokeWidth={2} />
+            </button>
+          }
+        />
+
+        <div className="p-6 space-y-6">
         {/* Top Toggle */}
         <div className="flex justify-center">
-          <div className="flex bg-gray-200 p-1 rounded-full w-full max-w-[280px]">
+          <div className="flex bg-gray-100 dark:bg-gray-800/80 p-1 rounded-full w-full max-w-[280px] border border-slate-200 dark:border-slate-700/60">
             <button
               onClick={() => { setMode('prepayment'); setResults(null); }}
-              className={`flex-1 py-2 px-4 rounded-full text-sm font-bold transition-all ${
-                mode === 'prepayment' ? 'bg-primary text-white shadow-md' : 'text-gray-600'
+              className={`flex-1 py-2 px-4 rounded-full text-[12.5px] font-bold transition-all ${
+                mode === 'prepayment' ? 'bg-white dark:bg-gray-700 text-primary dark:text-blue-400 shadow-sm' : 'text-slate-600 dark:text-slate-300 font-semibold'
               }`}
             >
               Pre Payment
             </button>
             <button
               onClick={() => { setMode('roi'); setResults(null); }}
-              className={`flex-1 py-2 px-4 rounded-full text-sm font-bold transition-all ${
-                mode === 'roi' ? 'bg-primary text-white shadow-md' : 'text-gray-600'
+              className={`flex-1 py-2 px-4 rounded-full text-[12.5px] font-bold transition-all ${
+                mode === 'roi' ? 'bg-white dark:bg-gray-700 text-primary dark:text-blue-400 shadow-sm' : 'text-slate-600 dark:text-slate-300 font-semibold'
               }`}
             >
               ROI Change
@@ -121,13 +158,13 @@ const PrePaymentROI = ({ onBack }) => {
         {/* Form Container */}
         <section className="bg-white rounded-3xl p-6 shadow-soft border border-gray-100 space-y-5">
           <div className="flex items-center gap-4">
-            <label className="text-sm font-semibold text-gray-500 w-32">Outstanding Amt.</label>
+            <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3] w-32">Outstanding Amt.</label>
             <div className="flex-1 relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold pointer-events-none">₹</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 font-bold pointer-events-none">₹</span>
               <input
                 type="text"
                 inputMode="decimal"
-                className="input-pill pl-10 text-right font-bold"
+                className="input-pill pl-10 text-right font-semibold"
                 value={formatNumericInput(formData.outstanding)}
                 onChange={(e) => setFormData({ ...formData, outstanding: parseFormattedNumber(e.target.value) })}
               />
@@ -135,13 +172,13 @@ const PrePaymentROI = ({ onBack }) => {
           </div>
 
           <div className="flex items-center gap-4">
-            <label className="text-sm font-semibold text-gray-500 w-32">Current Rate %</label>
+            <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3] w-32">Current Rate %</label>
             <div className="flex-1 relative">
               <input
                 type="number"
                 step="any"
                 placeholder="max: 50% per annum"
-                className="input-pill pr-10 text-right font-bold"
+                className="input-pill pr-10 text-right font-semibold"
                 value={formData.rate}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -150,18 +187,18 @@ const PrePaymentROI = ({ onBack }) => {
                   }
                 }}
               />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold pointer-events-none">%</span>
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 font-bold pointer-events-none">%</span>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
-            <label className="text-sm font-semibold text-gray-500 w-32">Current EMI</label>
+            <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3] w-32">Current EMI</label>
             <div className="flex-1 relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold pointer-events-none">₹</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 font-bold pointer-events-none">₹</span>
               <input
                 type="text"
                 inputMode="decimal"
-                className="input-pill pl-10 text-right font-bold"
+                className="input-pill pl-10 text-right font-semibold"
                 value={formatNumericInput(formData.emi)}
                 onChange={(e) => setFormData({ ...formData, emi: parseFormattedNumber(e.target.value) })}
               />
@@ -177,13 +214,13 @@ const PrePaymentROI = ({ onBack }) => {
                 exit={{ opacity: 0, x: -20 }}
                 className="flex items-center gap-4"
               >
-                <label className="text-sm font-semibold text-gray-500 w-32">Pre-Payment Amt.</label>
+                <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3] w-32">Pre-Payment Amt.</label>
                 <div className="flex-1 relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold pointer-events-none">₹</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 font-bold pointer-events-none">₹</span>
                   <input
                     type="text"
                     inputMode="decimal"
-                    className="input-pill pl-10 text-right font-bold text-primary"
+                    className="input-pill pl-10 text-right font-semibold text-primary"
                     value={formatNumericInput(formData.prepayment)}
                     onChange={(e) => setFormData({ ...formData, prepayment: parseFormattedNumber(e.target.value) })}
                   />
@@ -197,12 +234,12 @@ const PrePaymentROI = ({ onBack }) => {
                 exit={{ opacity: 0, x: -20 }}
                 className="flex items-center gap-4"
               >
-                <label className="text-sm font-semibold text-gray-500 w-32">Revised Rate %</label>
+                <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3] w-32">Revised Rate %</label>
                 <div className="flex-1 relative">
                   <input
                     type="number"
                     step="any"
-                    className="input-pill pr-10 text-right font-bold text-primary"
+                    className="input-pill pr-10 text-right font-semibold text-primary"
                     value={formData.revisedRate}
                     onChange={(e) => {
                       const val = e.target.value;
@@ -317,6 +354,7 @@ const PrePaymentROI = ({ onBack }) => {
             </motion.div>
           )}
         </AnimatePresence>
+        </div>
       </div>
     </div>
   );

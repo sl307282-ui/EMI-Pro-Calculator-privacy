@@ -1,29 +1,32 @@
 import React, { useMemo } from 'react';
 import { ChevronLeft, Share2 } from 'lucide-react';
 import { shareAsText } from '../utils/exportUtils';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 import { 
   generateAmortizationSchedule, 
   formatCurrency, 
-  formatDate 
+  formatDate,
+  getEmiDateForMonth
 } from '../utils/calculatorLogic';
 
 const LoanProfileSchedule = ({ loan, onBack }) => {
+  const { headerRef, handleScroll } = useHeaderScroll();
   const scheduleData = useMemo(() => {
     const amount = parseFloat(loan.amount);
     const monthlySchedule = generateAmortizationSchedule(amount, loan.interest, loan.tenure, true, loan, loan.firstEmiDate, loan.emi);
-    const startDate = new Date(loan.firstEmiDate);
 
     const rows = [];
     let yearlyPrincipal = 0;
     let yearlyInterest = 0;
 
     monthlySchedule.forEach((item, index) => {
-      const currentDate = new Date(startDate);
-      currentDate.setMonth(startDate.getMonth() + index);
+      const emiDate = item.emiDate || getEmiDateForMonth(loan.firstEmiDate, index + 1);
       
       rows.push({
         ...item,
-        displayDate: formatDate(currentDate, 'MMM-YYYY'),
+        displayDate: formatDate(emiDate, 'MMM-YYYY'),
         type: 'monthly'
       });
 
@@ -58,24 +61,31 @@ const LoanProfileSchedule = ({ loan, onBack }) => {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-white overflow-hidden h-full">
-      {/* Header */}
-      <header className="px-6 pt-14 pb-4 flex justify-between items-center bg-white border-b border-gray-50 sticky top-0 z-20">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 -ml-2 text-gray-600 active:scale-90 transition-transform">
-            <ChevronLeft size={24} />
-          </button>
-          <h1 className="text-xl font-bold text-gray-900">Loan Schedule</h1>
-        </div>
-        <button 
-          onClick={handleShare}
-          className="p-2 text-gray-600 active:scale-90 transition-transform"
-        >
-          <Share2 size={20} />
-        </button>
-      </header>
+    <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 overflow-hidden h-full transition-colors duration-300 relative">
+      <div 
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto min-h-0 no-scrollbar"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px)'
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title="Loan Schedule"
+          onBack={onBack}
+          rightActions={
+            <button 
+              type="button"
+              onClick={handleShare}
+              className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center"
+              title="Share"
+              aria-label="Share"
+            >
+              <Share2 size={20} strokeWidth={2} />
+            </button>
+          }
+        />
 
-      <div className="flex-1 overflow-y-auto min-h-0">
         <table className="w-full text-left border-collapse">
           <thead className="bg-primary text-white sticky top-0 z-10">
             <tr>

@@ -4,32 +4,39 @@ import {
   AlertCircle, CheckCircle2, Info, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 
 const NotificationCenter = ({ notifications, onBack, onClear, onActionClick }) => {
+  const { headerRef, handleScroll } = useHeaderScroll();
   return (
-    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden h-full transition-colors duration-300">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-900 px-6 pt-14 pb-6 shadow-sm z-30 transition-colors duration-300 border-b border-transparent dark:border-gray-800">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button onClick={onBack} className="p-2 -ml-2 text-gray-600 dark:text-gray-300 active:scale-90 transition-transform">
-              <ArrowLeft size={24} />
-            </button>
-            <h1 className="text-2xl font-black text-gray-900 dark:text-white">Notifications</h1>
-          </div>
-          {notifications.length > 0 && (
-            <button 
-              onClick={onClear}
-              className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-xl"
-            >
-              Clear All
-            </button>
-          )}
-        </div>
-      </header>
+    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden h-full transition-colors duration-300 relative">
+      <div 
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto no-scrollbar"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px)'
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title="Notifications"
+          onBack={onBack}
+          rightActions={
+            notifications.length > 0 && (
+              <button 
+                onClick={onClear}
+                className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-xl"
+              >
+                Clear All
+              </button>
+            )
+          }
+        />
 
-      {/* List */}
-      <div className="flex-1 overflow-y-auto no-scrollbar p-6 space-y-4">
+        {/* List */}
+        <div className="p-6 space-y-4">
         <AnimatePresence mode="popLayout">
           {notifications.length > 0 ? (
             notifications.map((notif, index) => (
@@ -101,6 +108,7 @@ const NotificationCenter = ({ notifications, onBack, onClear, onActionClick }) =
            <p className="text-xs text-blue-800/70 dark:text-blue-300/70 font-bold leading-relaxed">
              Sync your EMI dates with your calendar to never miss a payment and avoid penalties.
            </p>
+        </div>
         </div>
       </div>
     </div>

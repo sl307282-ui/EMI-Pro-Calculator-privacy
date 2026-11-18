@@ -3,17 +3,20 @@ import { ChevronLeft, History, RotateCcw, Share2, Info, ArrowRight, Vault } from
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatNumericInput, parseFormattedNumber, formatCurrency } from '../utils/calculatorLogic';
 import { shareAsText } from '../utils/exportUtils';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 
 const InputRow = ({ label, field, symbol, placeholder, isNumeric = true, formData, setFormData }) => (
   <div className="flex items-center justify-between gap-3 mb-4">
-    <label className="text-[11px] font-black text-gray-400 uppercase tracking-wider w-24 leading-tight">
+    <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 w-28 flex-shrink-0 leading-[1.3]">
       {label}
     </label>
     <div className="flex-1 relative">
       <input
         type={isNumeric ? 'text' : 'number'}
         inputMode={isNumeric ? 'decimal' : undefined}
-        className="w-full bg-gray-50 border-2 border-transparent focus:border-blue-100 rounded-2xl py-3 px-4 text-sm font-black text-gray-900 outline-none transition-all pr-12 text-right"
+        className="w-full bg-[#F8FAFC] dark:bg-gray-800 border border-[#CBD5E1] dark:border-slate-700 focus:border-blue-500 rounded-2xl py-3 px-4 text-sm font-semibold text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 outline-none transition-all pr-12 text-right"
         placeholder={placeholder}
         value={isNumeric ? formatNumericInput(formData[field]) : formData[field]}
         onChange={(e) => {
@@ -22,7 +25,7 @@ const InputRow = ({ label, field, symbol, placeholder, isNumeric = true, formDat
         }}
       />
       {symbol && (
-        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-300 uppercase">
+        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">
           {symbol}
         </span>
       )}
@@ -31,6 +34,7 @@ const InputRow = ({ label, field, symbol, placeholder, isNumeric = true, formDat
 );
 
 const PFCalculator = ({ onBack }) => {
+  const { headerRef, handleScroll } = useHeaderScroll();
   const [formData, setFormData] = useState({
     salary: '50000',
     empContribution: '12',
@@ -118,22 +122,34 @@ const PFCalculator = ({ onBack }) => {
 
 
   return (
-    <div className="flex-1 flex flex-col bg-white overflow-hidden h-full">
-      <header className="px-6 pt-14 pb-4 flex justify-between items-center bg-white border-b border-gray-50 sticky top-0 z-20">
-        <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-2 -ml-2 text-gray-600 active:scale-90 transition-transform">
-            <ChevronLeft size={24} />
-          </button>
-          <h1 className="text-lg font-black text-gray-900">PF Calculator</h1>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={handleShare} className="p-2.5 bg-gray-50 rounded-full text-gray-600 active:scale-90 transition-transform">
-            <Share2 size={18} />
-          </button>
-        </div>
-      </header>
+    <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 transition-colors duration-300 overflow-hidden h-full relative">
+      <div 
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto no-scrollbar"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px)'
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title="PF Calculator"
+          onBack={onBack}
+          rightActions={
+            <div className="flex items-center gap-2">
+              <button 
+                type="button"
+                onClick={handleShare} 
+                className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center"
+                title="Share"
+                aria-label="Share"
+              >
+                <Share2 size={20} strokeWidth={2} />
+              </button>
+            </div>
+          }
+        />
 
-      <div className="flex-1 overflow-y-auto no-scrollbar px-6 py-6">
+        <div className="px-6 py-6">
         <div className="bg-blue-50/50 rounded-[2.5rem] p-6 border border-blue-100/50 mb-8">
           <InputRow label="Monthly Salary" field="salary" symbol="₹" formData={formData} setFormData={setFormData} />
           <InputRow label="Employee Share" field="empContribution" symbol="%" formData={formData} setFormData={setFormData} />
@@ -203,6 +219,7 @@ const PFCalculator = ({ onBack }) => {
             </button>
           </motion.div>
         )}
+        </div>
       </div>
     </div>
   );

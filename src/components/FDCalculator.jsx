@@ -5,10 +5,13 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { formatNumericInput, parseFormattedNumber, formatCurrency } from '../utils/calculatorLogic';
 import { shareAsText } from '../utils/exportUtils';
 import BottomSheetSelector from './BottomSheetSelector';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 
 const InputRow = ({ label, field, symbol, placeholder, isNumeric = true, onClick, toggleField, formData, setFormData, children }) => (
   <div className="flex items-center gap-3 mb-3.5">
-    <label className="w-22 flex-shrink-0 text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider text-left">
+    <label className="w-24 flex-shrink-0 text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-[1.3] text-left">
       {label}
     </label>
     <div className="flex-grow flex gap-2">
@@ -20,7 +23,7 @@ const InputRow = ({ label, field, symbol, placeholder, isNumeric = true, onClick
               onClick={onClick}
               type={isNumeric ? 'text' : 'text'}
               inputMode={isNumeric && !onClick ? 'decimal' : undefined}
-              className={`w-full bg-white dark:bg-gray-800 border border-gray-150 dark:border-gray-700/50 rounded-xl py-2.5 px-3.5 text-xs font-black text-gray-900 dark:text-white outline-none transition-all pr-10 text-left focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${onClick ? 'cursor-pointer active:bg-gray-100 dark:active:bg-gray-700' : ''}`}
+              className={`w-full bg-[#F8FAFC] dark:bg-gray-800 border border-[#CBD5E1] dark:border-slate-700 rounded-xl py-3 px-3.5 text-sm font-semibold text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 outline-none transition-all pr-10 text-left focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${onClick ? 'cursor-pointer active:bg-gray-100 dark:active:bg-gray-700' : ''}`}
               placeholder={placeholder}
               value={isNumeric && !onClick ? formatNumericInput(formData[field]) : formData[field]}
               onChange={(e) => {
@@ -40,7 +43,7 @@ const InputRow = ({ label, field, symbol, placeholder, isNumeric = true, onClick
             <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
               {onClick && <ChevronDown size={14} className="text-gray-450" />}
               {symbol && (
-                <span className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase">
+                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">
                   {symbol}
                 </span>
               )}
@@ -49,7 +52,7 @@ const InputRow = ({ label, field, symbol, placeholder, isNumeric = true, onClick
         )}
       </div>
       {toggleField && (
-        <div className="bg-gray-100 dark:bg-gray-800 p-0.5 rounded-lg flex w-20 flex-shrink-0 border border-transparent dark:border-gray-700">
+        <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-xl flex w-24 flex-shrink-0 border border-slate-200 dark:border-slate-700/60">
           <button
             onClick={() => {
               setFormData(p => {
@@ -59,7 +62,7 @@ const InputRow = ({ label, field, symbol, placeholder, isNumeric = true, onClick
                 return { ...p, isMonths: false, [field]: p[field] === '' ? '' : String(capped) };
               });
             }}
-            className={`flex-1 py-1 rounded text-[9px] font-black transition-all ${!formData.isMonths ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-400 dark:text-gray-500'}`}
+            className={`flex-1 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${!formData.isMonths ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 font-bold shadow-sm' : 'text-slate-600 dark:text-slate-300'}`}
           >
             YR
           </button>
@@ -72,7 +75,7 @@ const InputRow = ({ label, field, symbol, placeholder, isNumeric = true, onClick
                 return { ...p, isMonths: true, [field]: p[field] === '' ? '' : String(capped) };
               });
             }}
-            className={`flex-1 py-1 rounded text-[9px] font-black transition-all ${formData.isMonths ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-400 dark:text-gray-500'}`}
+            className={`flex-1 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${formData.isMonths ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 font-bold shadow-sm' : 'text-slate-600 dark:text-slate-300'}`}
           >
             MO
           </button>
@@ -83,6 +86,7 @@ const InputRow = ({ label, field, symbol, placeholder, isNumeric = true, onClick
 );
 
 const FDCalculator = ({ onBack }) => {
+  const { headerRef, scrollRef, handleScroll } = useHeaderScroll();
   const [formData, setFormData] = useState({
     amount: '100000',
     interestRate: '7.5',
@@ -176,23 +180,36 @@ const FDCalculator = ({ onBack }) => {
 
 
   return (
-    <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 transition-colors duration-300 overflow-hidden h-full relative">
-      <header className="px-6 pt-14 pb-4 flex justify-between items-center bg-white dark:bg-gray-900 border-b border-gray-50 dark:border-gray-805 sticky top-0 z-20 transition-colors duration-300">
-        <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-2 -ml-2 text-gray-600 dark:text-gray-205 active:scale-90 transition-transform">
-            <ChevronLeft size={24} />
-          </button>
-          <h1 className="text-lg font-black text-gray-900 dark:text-white animate-fade-in">FD Calculator</h1>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={handleShare} className="p-2.5 bg-gray-50 dark:bg-gray-800 rounded-full text-gray-600 dark:text-gray-200 active:scale-90 transition-transform">
-            <Share2 size={18} />
-          </button>
-        </div>
-      </header>
+    <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 overflow-hidden h-full relative">
+      <div 
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto no-scrollbar"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px)'
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title="FD Calculator"
+          onBack={onBack}
+          rightActions={
+            <div className="flex items-center gap-2">
+              <button 
+                type="button"
+                onClick={handleShare} 
+                className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center"
+                title="Share"
+                aria-label="Share"
+              >
+                <Share2 size={20} strokeWidth={2} />
+              </button>
+            </div>
+          }
+        />
 
-      <div className="flex-1 overflow-y-auto no-scrollbar px-6 py-6">
-        <div className="bg-white/40 dark:bg-gray-800/40 backdrop-blur-sm rounded-3xl p-4.5 shadow-inner border border-white/50 dark:border-gray-800/50 mb-6 transition-colors duration-300">
+        <div className="px-6 py-6">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl p-4.5 shadow-sm border border-gray-100 dark:border-gray-800 mb-6">
           <InputRow label="Amount" field="amount" symbol="₹" formData={formData} setFormData={setFormData} />
           <InputRow label="Interest %" field="interestRate" symbol="%" placeholder="(max: 50%)" formData={formData} setFormData={setFormData} />
           <InputRow label="Period" field="period" toggleField="isMonths" formData={formData} setFormData={setFormData} />
@@ -210,7 +227,7 @@ const FDCalculator = ({ onBack }) => {
 
         {results && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 pb-12">
-            <div className="bg-white dark:bg-gray-805 border-2 border-gray-50 dark:border-gray-800 rounded-[2.5rem] p-6 shadow-sm transition-colors duration-300">
+            <div className="bg-white dark:bg-gray-805 border-2 border-gray-50 dark:border-gray-800 rounded-[2.5rem] p-6 shadow-sm">
               <h3 className="text-[11px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-6 text-center">Maturity Summary</h3>
               
               <div className="grid grid-cols-2 gap-4 items-center mb-8">
@@ -279,6 +296,7 @@ const FDCalculator = ({ onBack }) => {
             </button>
           </motion.div>
         )}
+        </div>
       </div>
 
       <BottomSheetSelector 

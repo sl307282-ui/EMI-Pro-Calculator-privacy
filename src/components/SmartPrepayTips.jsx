@@ -7,6 +7,9 @@ import {
 } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 import { t } from '../utils/calculatorLogic';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 
 /* ─── Premium Custom Prepayment Badge ─── */
 const PrepaymentCircleIcon = () => (
@@ -111,6 +114,7 @@ const StepCard = ({ title, icon: Icon, color, bg }) => (
 );
 
 export default function SmartPrepayTips({ onBack, onCalculate }) {
+  const { headerRef, handleScroll } = useHeaderScroll();
   const { language } = useSettings();
 
   return (
@@ -120,21 +124,21 @@ export default function SmartPrepayTips({ onBack, onCalculate }) {
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-400/5 blur-[80px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-400/5 blur-[80px] rounded-full pointer-events-none" />
 
-      {/* Header */}
-      <header className="px-6 pt-14 pb-4 flex items-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 sticky top-0 z-20">
-        <button 
-          onClick={onBack} 
-          className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full active:scale-90 transition-all"
-        >
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className="ml-4 text-lg font-black text-gray-900 dark:text-white tracking-tight">
-          Prepayment Insights
-        </h1>
-      </header>
+      {/* Main Body with Sticky AppHeader */}
+      <div 
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto no-scrollbar"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px)'
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title="Prepayment Insights"
+          onBack={onBack}
+        />
 
-      {/* Main Body */}
-      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6 no-scrollbar pb-24">
+        <div className="px-6 py-5 space-y-6">
         
         {/* Card 1: Reduce Loan Faster with Prepayment */}
         <div className="bg-emerald-50/40 dark:bg-emerald-950/10 border border-emerald-100/80 dark:border-emerald-900/30 rounded-[2.5rem] p-6 shadow-sm relative overflow-hidden">
@@ -238,5 +242,6 @@ export default function SmartPrepayTips({ onBack, onCalculate }) {
 
       </div>
     </div>
+  </div>
   );
 }

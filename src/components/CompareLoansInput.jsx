@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { ChevronLeft, RotateCcw, ArrowRightLeft, Plus, ChevronsRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { calculateEMI, formatNumericInput, parseFormattedNumber } from '../utils/calculatorLogic';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 
 const defaultLoan = () => ({ amount: '', interest: '', period: '' });
 
@@ -14,7 +17,7 @@ const InputField = ({ label, placeholder, value, onChange, id }) => (
       placeholder={placeholder}
       value={formatNumericInput(value)}
       onChange={(e) => onChange(parseFormattedNumber(e.target.value))}
-      className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm font-medium focus:ring-1 focus:ring-blue-400 outline-none text-gray-700 dark:text-white placeholder-gray-300 dark:placeholder-gray-500 shadow-sm transition-colors duration-300"
+      className="w-full bg-[#F8FAFC] dark:bg-gray-800 border border-[#CBD5E1] dark:border-slate-700 rounded-xl px-3.5 py-3 text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 shadow-sm transition-all"
     />
   </div>
 );
@@ -24,13 +27,14 @@ const IconDivider = ({ targetId }) => (
     className="flex items-center justify-center px-1 cursor-pointer active:scale-95 transition-transform"
     onClick={() => document.getElementById(targetId)?.focus()}
   >
-    <div className="p-1 bg-blue-50 dark:bg-gray-800 rounded-md border border-blue-200 dark:border-gray-700 transition-colors duration-300">
+    <div className="p-1 bg-blue-50 dark:bg-gray-800 rounded-md border border-blue-200 dark:border-gray-700">
       <ChevronsRight size={14} className="text-blue-500 dark:text-blue-400" />
     </div>
   </div>
 );
 
 const CompareLoansInput = ({ onBack, onCompare, onDetails }) => {
+  const { headerRef, scrollRef, handleScroll } = useHeaderScroll();
   const [loans, setLoans] = useState([defaultLoan(), defaultLoan()]);
 
   const updateLoan = (idx, field, value) => {
@@ -84,31 +88,37 @@ const CompareLoansInput = ({ onBack, onCompare, onDetails }) => {
   const allFilled = loans.every(l => l.amount && l.interest && l.period);
 
   return (
-    <div className="flex-1 flex flex-col bg-[#F0F9FF] dark:bg-gray-900 overflow-hidden h-full transition-colors duration-300">
-      {/* Header */}
-      <header className="px-6 pt-14 pb-4 flex items-center justify-between bg-transparent sticky top-0 z-10">
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={onBack}
-          className="w-10 h-10 flex items-center justify-center bg-white dark:bg-gray-800 rounded-full shadow-sm text-gray-800 dark:text-gray-200 border border-transparent dark:border-gray-700 transition-all"
-        >
-          <ChevronLeft size={24} />
-        </motion.button>
-        <h1 className="text-lg font-bold text-gray-800 dark:text-white">Compare Loans</h1>
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => onCompare(results || [])}
-          className="w-10 h-10 flex items-center justify-center bg-white dark:bg-gray-800 rounded-full shadow-sm text-gray-800 dark:text-gray-200 border border-transparent dark:border-gray-700 transition-all"
-        >
-          <Plus size={24} />
-        </motion.button>
-      </header>
+    <div className="flex-1 flex flex-col bg-[#F0F9FF] dark:bg-gray-900 overflow-hidden h-full relative">
+      <div 
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto no-scrollbar"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px)'
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title="Compare Loans"
+          onBack={onBack}
+          rightActions={
+            <button
+              type="button"
+              onClick={() => onCompare(results || [])}
+              aria-label="Add loan"
+              title="Add loan"
+              className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center"
+            >
+              <Plus size={20} strokeWidth={2} />
+            </button>
+          }
+        />
 
-      {/* Input Section */}
-      <div className="flex-1 overflow-y-auto no-scrollbar px-6 py-4">
+        {/* Input Section */}
+        <div className="px-6 py-4">
         <div className="flex justify-between px-4 mb-6">
-          <span className="text-sm font-bold text-blue-500 dark:text-blue-400 uppercase tracking-wider">Loan 1</span>
-          <span className="text-sm font-bold text-blue-500 dark:text-blue-400 uppercase tracking-wider">Loan 2</span>
+          <span className="text-[13.5px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Loan 1</span>
+          <span className="text-[13.5px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Loan 2</span>
         </div>
 
         <div className="space-y-4 mb-8">
@@ -232,6 +242,7 @@ const CompareLoansInput = ({ onBack, onCompare, onDetails }) => {
             </motion.div>
           )}
         </AnimatePresence>
+        </div>
       </div>
     </div>
   );

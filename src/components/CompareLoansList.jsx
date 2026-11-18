@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronLeft, Plus, X, ArrowRightLeft, Trophy, TrendingDown, Info } from 'lucide-react';
 import { calculateEMI, formatCurrency } from '../utils/calculatorLogic';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 
 const CARD_COLORS = [
   { bg: 'from-blue-600 to-blue-500',    badge: 'bg-blue-100 text-blue-600',    light: 'text-blue-100',   ring: 'ring-blue-300' },
@@ -26,6 +30,7 @@ const TableCell = ({ children, isBold = false }) => (
 );
 
 const CompareLoansList = ({ initialLoans, onBack, onDetails }) => {
+  const { headerRef, handleScroll } = useHeaderScroll();
   const [loans, setLoans] = useState(initialLoans);
   const [showModal, setShowModal] = useState(false);
   const [modal, setModal] = useState(emptyModal);
@@ -70,19 +75,18 @@ const CompareLoansList = ({ initialLoans, onBack, onDetails }) => {
 
   return (
     <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 transition-colors duration-300 relative">
-      {/* Header */}
-      <header className="px-6 pt-14 pb-4 flex items-center justify-between bg-[#779BB1] dark:bg-gray-900 border-b border-transparent dark:border-gray-800 sticky top-0 z-20 transition-colors duration-300">
-        <button
-          onClick={onBack}
-          className="w-10 h-10 flex items-center justify-center bg-white/20 backdrop-blur-md rounded-full shadow-sm text-white active:scale-90 transition-transform"
-        >
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className="text-lg font-bold text-white">Compare Loans</h1>
-        <div className="w-10" /> {/* Spacer */}
-      </header>
-
-      <div className="flex-1 overflow-y-auto no-scrollbar pb-24">
+      <div 
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto no-scrollbar"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px)'
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title="Compare Loans"
+          onBack={onBack}
+        />
         {/* Best Pick Summary */}
         {loans.length > 1 && (
           <div className="mx-6 mt-6 mb-8 rounded-3xl bg-gradient-to-br from-gray-900 to-gray-800 dark:from-black dark:to-gray-950 p-6 shadow-xl relative overflow-hidden">
@@ -169,9 +173,9 @@ const CompareLoansList = ({ initialLoans, onBack, onDetails }) => {
       </div>
 
       {/* Add Loan Modal (Image 3 Style) */}
-      {showModal && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-xs bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden animate-zoom-in border border-transparent dark:border-gray-700">
+      {showModal && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-xs bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden animate-zoom-in border border-transparent dark:border-gray-700 z-[10000]">
             <div className="p-6">
               <h2 className="text-lg font-bold text-[#3282B8] dark:text-blue-400 mb-6 border-b border-gray-100 dark:border-gray-700 pb-2">Add New Loan</h2>
               
@@ -244,7 +248,8 @@ const CompareLoansList = ({ initialLoans, onBack, onDetails }) => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

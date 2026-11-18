@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
 import { 
-  Calculator, Zap, FilePlus, LayoutGrid, Sigma,
-  ChevronRight, ArrowLeft
+  Calculator, Zap, FilePlus, LayoutGrid, Sigma, Layers, Building2, CreditCard, Sprout,
+  Receipt, ShieldCheck, LineChart, ChevronRight, ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 
 const SIPGrowthIcon = ({ size = 28 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600">
@@ -17,14 +21,15 @@ const SIPGrowthIcon = ({ size = 28 }) => (
 );
 
 const CalculatorsScreen = ({ onNavigate, onBack }) => {
-  const [scrollOpacity, setScrollOpacity] = useState(0);
+  const { headerRef, handleScroll } = useHeaderScroll();
   const { theme } = useSettings();
 
-  const handleScroll = (e) => {
-    const scrollTop = e.currentTarget.scrollTop;
-    const opacity = Math.min(0.6, (scrollTop / 60) * 0.6);
-    setScrollOpacity(opacity);
-  };
+  useEffect(() => {
+    const isDark = theme === 'dark';
+    try {
+      StatusBar.setStyle({ style: isDark ? Style.Dark : Style.Light });
+    } catch (err) {}
+  }, [theme]);
 
   const calculatorTools = [
     { 
@@ -37,6 +42,33 @@ const CalculatorsScreen = ({ onNavigate, onBack }) => {
       bgColor: 'bg-blue-50'
     },
     { 
+      id: 'rent-buy', 
+      icon: Building2, 
+      label: 'Rent vs. Buy', 
+      sub: 'Home Wealth & Break-Even Analyzer', 
+      route: 'RENT_VS_BUY',
+      color: 'text-teal-600',
+      bgColor: 'bg-teal-50'
+    },
+    { 
+      id: 'card-trap', 
+      icon: CreditCard, 
+      label: 'Card Trap', 
+      sub: 'Credit Card Min-Due Trap Simulator', 
+      route: 'CARD_TRAP',
+      color: 'text-rose-600',
+      bgColor: 'bg-rose-50'
+    },
+    { 
+      id: 'loan-split', 
+      icon: Layers, 
+      label: 'Loan Split', 
+      sub: 'Gold, Car & Home Portfolio Split', 
+      route: 'LOAN_SPLIT',
+      color: 'text-amber-600',
+      bgColor: 'bg-amber-50'
+    },
+    { 
       id: 'sip-growth', 
       icon: SIPGrowthIcon, 
       label: 'SIP Calculator', 
@@ -44,6 +76,42 @@ const CalculatorsScreen = ({ onNavigate, onBack }) => {
       route: 'SIP_CALC',
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-50'
+    },
+    { 
+      id: 'wealth-planner', 
+      icon: Sprout, 
+      label: 'Wealth Planner', 
+      sub: 'SWP, Goal SIP & Hybrid Plan', 
+      route: 'WEALTH_PLANNER',
+      color: 'text-teal-600',
+      bgColor: 'bg-teal-50'
+    },
+    { 
+      id: 'tax-salary', 
+      icon: Receipt, 
+      label: 'Tax & Salary', 
+      sub: 'Income Tax, Take-Home CTC & GST', 
+      route: 'TAX_SALARY',
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50'
+    },
+    { 
+      id: 'retirement', 
+      icon: ShieldCheck, 
+      label: 'Retirement Planner', 
+      sub: 'NPS, EPF & Gratuity Calculation', 
+      route: 'RETIREMENT',
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50'
+    },
+    { 
+      id: 'smart-roi', 
+      icon: LineChart, 
+      label: 'Smart ROI', 
+      sub: 'CAGR, Real Return & Doubling Time', 
+      route: 'SMART_ROI',
+      color: 'text-amber-600',
+      bgColor: 'bg-amber-50'
     },
     { 
       id: 'quick', 
@@ -87,37 +155,25 @@ const CalculatorsScreen = ({ onNavigate, onBack }) => {
 
   return (
     <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden h-full transition-colors duration-300 relative">
-      {/* Header */}
-      <header 
-        style={{
-          backgroundColor: theme === 'dark' 
-            ? `rgba(17, 24, 39, ${scrollOpacity})` 
-            : `rgba(255, 255, 255, ${scrollOpacity})`,
-          backdropFilter: scrollOpacity > 0 ? `blur(${scrollOpacity * 10}px)` : 'none',
-          WebkitBackdropFilter: scrollOpacity > 0 ? `blur(${scrollOpacity * 10}px)` : 'none',
-        }}
-        className={`absolute top-0 left-0 right-0 px-6 pt-12 pb-3.5 z-30 transition-all duration-200 ${
-          scrollOpacity > 0 
-            ? 'shadow-sm border-b border-gray-100 dark:border-gray-800' 
-            : 'border-b border-transparent'
-        }`}
-      >
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 -ml-2 text-gray-600 dark:text-gray-300 active:scale-90 transition-transform">
-            <ArrowLeft size={20} />
-          </button>
-          <h1 className="text-xl font-black text-gray-900 dark:text-white">All Calculators</h1>
-        </div>
-      </header>
-
-      {/* Main Content */}
+      {/* Scrollable Container with Sticky AppHeader */}
       <div 
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto no-scrollbar px-6 pt-24 pb-36 space-y-4"
+        className="flex-1 overflow-y-auto no-scrollbar"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 88px)'
+        }}
       >
-        <div className="mb-2">
-          <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest px-1 mb-4">Primary Tools</h2>
-          <div className="space-y-3">
+        <AppHeader
+          headerRef={headerRef}
+          title="All Calculators"
+          onBack={onBack}
+          variant="soft-blue"
+        />
+
+        <div className="px-6 pt-4 space-y-4">
+          <div className="mb-2">
+            <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest px-1 mb-4">Primary Tools</h2>
+            <div className="space-y-3">
             {filteredTools.map((tool) => (
               <motion.button
                 key={tool.id}
@@ -157,6 +213,7 @@ const CalculatorsScreen = ({ onNavigate, onBack }) => {
            </button>
         </div>
       </div>
+    </div>
     </div>
   );
 };

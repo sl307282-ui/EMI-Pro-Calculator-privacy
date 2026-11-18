@@ -5,6 +5,9 @@ import {
   Lightbulb, Calculator, FileText, Calendar, 
   Sparkles, CheckCircle2, PieChart, ShieldCheck
 } from 'lucide-react';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 
 /* ─── Sprout-Moneybag Premium Icon ─── */
 const SproutMoneyIcon = () => (
@@ -151,6 +154,8 @@ const SIPStepCard = ({ title, icon: Icon, color, bg }) => (
 );
 
 export default function SIPTips({ onBack, onCalculate }) {
+  const { headerRef, handleScroll } = useHeaderScroll();
+
   return (
     <div className="flex-1 h-full flex flex-col bg-gray-50/50 dark:bg-transparent transition-colors duration-500 min-h-0 overflow-hidden relative">
       
@@ -158,21 +163,21 @@ export default function SIPTips({ onBack, onCalculate }) {
       <div className="absolute top-[-10%] left-[-10%] w-[45%] h-[45%] bg-indigo-400/5 blur-[80px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[45%] h-[45%] bg-emerald-400/5 blur-[80px] rounded-full pointer-events-none" />
 
-      {/* Header */}
-      <header className="px-6 pt-14 pb-4 flex items-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 sticky top-0 z-20">
-        <button 
-          onClick={onBack} 
-          className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full active:scale-90 transition-all"
-        >
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className="ml-4 text-lg font-black text-gray-900 dark:text-white tracking-tight">
-          SIP Insights
-        </h1>
-      </header>
+      {/* Main scrolling section with Sticky AppHeader */}
+      <div 
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto no-scrollbar"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px)'
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title="SIP Insights"
+          onBack={onBack}
+        />
 
-      {/* Main scrolling section */}
-      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 no-scrollbar pb-24">
+        <div className="px-6 py-6 space-y-6">
         
         {/* Card 1: Grow Wealth with SIP / Invest Small, Grow Big */}
         <div className="bg-indigo-50/20 dark:bg-indigo-950/5 border border-indigo-100/50 dark:border-indigo-900/10 rounded-[2.5rem] p-6 shadow-sm relative overflow-hidden flex flex-col gap-6">
@@ -286,5 +291,6 @@ export default function SIPTips({ onBack, onCalculate }) {
 
       </div>
     </div>
+  </div>
   );
 }

@@ -183,7 +183,7 @@ const Illustration3D = () => (
 /* ─────────────────────────────────────────────
    Main Component
    ───────────────────────────────────────────── */
-const QuickEMIBanner = ({ onNavigate }) => {
+const QuickEMIBanner = ({ onNavigate, innerRef }) => {
   const { theme } = useSettings();
   const isDark = theme === 'dark';
 
@@ -192,7 +192,7 @@ const QuickEMIBanner = ({ onNavigate }) => {
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
-      className="relative overflow-hidden rounded-3xl border"
+      className="relative overflow-hidden rounded-3xl border h-full flex flex-col justify-center"
       style={{
         background: isDark
           ? 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #311042 100%)'
@@ -257,13 +257,20 @@ const QuickEMIBanner = ({ onNavigate }) => {
       ))}
  
       {/* ── Content row ── */}
-      <div className="relative z-10 flex items-center gap-3 p-4">
+      <div
+        ref={innerRef}
+        style={{
+          opacity: 'calc(1 - var(--collapse, 0) * 1.8)',
+          transform: 'translateY(calc(-10px * var(--collapse, 0)))',
+        }}
+        className="relative z-10 flex items-center justify-between gap-2 px-4 py-3 h-full will-change-[opacity,transform]"
+      >
  
         {/* Left column */}
         <div className="flex-1 flex flex-col min-w-0">
  
           {/* Badge */}
-          <div className="inline-flex items-center gap-1 self-start px-2 py-0.5 rounded-full mb-2"
+          <div className="inline-flex items-center gap-1 self-start px-2 py-0.5 rounded-full mb-1"
             style={{
               background: isDark ? 'rgba(99,102,241,0.12)' : 'rgba(219,234,254,0.7)',
               border: '1px solid rgba(147,197,253,0.3)',
@@ -276,7 +283,7 @@ const QuickEMIBanner = ({ onNavigate }) => {
           </div>
  
           {/* Title */}
-          <h2 className="text-xl font-black leading-tight text-gray-900 dark:text-white mb-1.5">
+          <h2 className="text-lg font-black leading-tight text-gray-900 dark:text-white mb-0.5">
             Quick{' '}
             <span
               style={{
@@ -291,7 +298,7 @@ const QuickEMIBanner = ({ onNavigate }) => {
           </h2>
  
           {/* Subtitle */}
-          <p className="text-[10.5px] text-gray-500 dark:text-gray-400 font-semibold leading-normal mb-3 max-w-[185px]">
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 font-semibold leading-tight mb-2 max-w-[175px]">
             Professional-grade financial insights at your fingertips.
           </p>
  
@@ -301,21 +308,21 @@ const QuickEMIBanner = ({ onNavigate }) => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.96 }}
             onClick={() => onNavigate('QUICK_CALCULATOR')}
-            className="self-start flex items-center gap-2 pl-4 pr-1 py-1.5 rounded-full font-black text-[9px] uppercase tracking-widest text-white"
+            className="self-start flex items-center gap-2 pl-3.5 pr-1 py-1 rounded-full font-black text-[8.5px] uppercase tracking-widest text-white cursor-pointer active:scale-95 transition-transform"
             style={{
               background: 'linear-gradient(135deg, #2563eb 0%, #4f46e5 100%)',
               boxShadow: '0 6px 18px -4px rgba(37,99,235,0.4)',
             }}
           >
             Calculate EMI
-            <span className="w-5.5 h-5.5 bg-white rounded-full flex items-center justify-center flex-shrink-0">
+            <span className="w-5 h-5 bg-white rounded-full flex items-center justify-center flex-shrink-0">
               <ArrowRight size={10} className="text-blue-600" strokeWidth={3} />
             </span>
           </motion.button>
         </div>
  
         {/* Right column – illustration */}
-        <div className="relative flex-shrink-0 w-[110px] h-[130px]">
+        <div className="relative flex-shrink-0 w-[96px] h-[114px]">
           <Illustration3D />
         </div>
       </div>

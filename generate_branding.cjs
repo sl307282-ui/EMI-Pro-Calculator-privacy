@@ -30,7 +30,7 @@ const puppeteer = require('puppeteer');
             Reliable
           </div>
         </div>
-        <div class="version">Version 1.2.9</div>
+        <div class="version">Version 1.3.0</div>
       </body>
     </html>
   `;

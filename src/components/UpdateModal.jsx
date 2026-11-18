@@ -18,7 +18,7 @@ const UpdateModal = ({ isOpen, onClose, updateUrl, latestVersion, isForceUpdate 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6">
           {/* Backdrop overlay */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -33,7 +33,7 @@ const UpdateModal = ({ isOpen, onClose, updateUrl, latestVersion, isForceUpdate 
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
-            className="w-full max-w-sm bg-white dark:bg-gray-850 rounded-[2.5rem] overflow-hidden shadow-2xl relative z-10 border border-gray-100 dark:border-gray-800 transition-colors duration-300"
+            className="w-full max-w-sm bg-white dark:bg-gray-850 rounded-[2.5rem] overflow-hidden shadow-2xl relative z-[10000] border border-gray-100 dark:border-gray-800 transition-colors duration-300"
           >
             {/* Header / Graphic */}
             <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-8 text-center relative overflow-hidden">

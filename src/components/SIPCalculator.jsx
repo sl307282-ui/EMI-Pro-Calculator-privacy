@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ChevronLeft, History, RotateCcw, Share2, Info, ArrowRight,
   Trash2, X, Plus, Calendar, TrendingUp, Sparkles, PlusCircle, Check
@@ -7,40 +8,263 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { formatNumericInput, parseFormattedNumber, formatCurrency } from '../utils/calculatorLogic';
 import { shareAsText } from '../utils/exportUtils';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import CollapsingTabs from './CollapsingTabs';
+import useHeaderScroll from '../hooks/useHeaderScroll';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { useSettings } from '../context/SettingsContext';
 
-const InputRow = ({ label, field, placeholder, symbol, value, onChange, isNumeric = true }) => (
-  <div className="flex items-center justify-between gap-4 mb-5">
-    <label className="text-sm font-semibold text-gray-600 dark:text-gray-400 flex-1 leading-snug">{label}</label>
-    <div className="relative flex items-center flex-[1.5]">
-      <input
-        type="text"
-        inputMode="decimal"
-        placeholder={placeholder}
-        value={isNumeric ? formatNumericInput(value) : value}
-        onChange={(e) => onChange(field, isNumeric ? parseFormattedNumber(e.target.value) : e.target.value)}
-        className="w-full bg-white dark:bg-gray-800 border border-gray-150 dark:border-gray-700/50 rounded-xl px-4 py-3.5 shadow-sm text-sm font-bold text-gray-800 dark:text-gray-100 outline-none focus:ring-2 focus:ring-primary/50 transition-all text-right pr-10 animate-fade-in"
-      />
-      <span className="absolute right-4 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">{symbol}</span>
+const InputRow = ({ label, field, placeholder, symbol, value, onChange, onFocus, isNumeric = true }) => {
+  const handleFocus = (e) => {
+    const el = e.currentTarget;
+    el.select();
+    requestAnimationFrame(() => {
+      try {
+        el.select();
+      } catch {}
+    });
+    if (onFocus) onFocus(e);
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-4 mb-5">
+      <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 flex-1 leading-[1.3]">{label}</label>
+      <div className="relative flex items-center flex-[1.5]">
+        <input
+          type="text"
+          inputMode="decimal"
+          placeholder={placeholder}
+          value={isNumeric ? formatNumericInput(value) : value}
+          onChange={(e) => onChange(field, isNumeric ? parseFormattedNumber(e.target.value) : e.target.value)}
+          onFocus={handleFocus}
+          className="w-full bg-[#F8FAFC] dark:bg-gray-800 border border-[#CBD5E1] dark:border-slate-700 rounded-xl px-4 py-3.5 shadow-sm text-sm font-semibold text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-right pr-10"
+        />
+        <span className="absolute right-4 text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">{symbol}</span>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
-const SIPCalculator = ({ onBack }) => {
+export const SIP_DEFAULTS = {
+  sipAmount: '5000',
+  lumpsumAmount: '100000',
+  stepUpBaseAmount: '5000',
+  returnRate: '12',
+  periodValue: '10',
+  periodType: 'Years',
+  stepUpFreq: 'Monthly', // 'Monthly' | 'Quarterly' | 'Yearly'
+  stepUpInterval: 'Every 1 Year', // 'Every 6 Months' | 'Every 1 Year'
+  stepUpIncType: '%', // '%' | '₹'
+  stepUpIncValue: '10'
+};
+
+const validateSIPForm = (data, tab) => {
+  let amount = 0;
+  let label = 'Monthly Investment';
+  if (tab === 'SIP') {
+    amount = parseFloat(data.sipAmount);
+    label = 'Monthly Investment';
+  } else if (tab === 'Lumpsum') {
+    amount = parseFloat(data.lumpsumAmount);
+    label = 'Investment Amount';
+  } else if (tab === 'Step-Up') {
+    amount = parseFloat(data.stepUpBaseAmount);
+    label = 'Monthly Investment';
+  }
+
+  if (isNaN(amount) || amount === 0 || !amount) {
+    return `Please enter a valid ${label.toLowerCase()}.`;
+  }
+  if (amount < 100) {
+    return `${label} must be at least ₹100.`;
+  }
+
+  const rate = parseFloat(data.returnRate);
+  if (isNaN(rate) || rate === 0 || !rate) {
+    return 'Please enter Expected Return % (1 to 50).';
+  }
+  if (rate < 1 || rate > 50) {
+    return 'Expected Return must be between 1% and 50%.';
+  }
+
+  const period = parseFloat(data.periodValue);
+  if (isNaN(period) || period === 0 || !period) {
+    return 'Please enter an investment period.';
+  }
+  if (data.periodType === 'Years') {
+    if (period < 1 || period > 50) {
+      return 'Period must be between 1 and 50 years.';
+    }
+  } else {
+    if (period < 1 || period > 600) {
+      return 'Period must be between 1 and 600 months.';
+    }
+  }
+
+  if (tab === 'Step-Up') {
+    const stepVal = parseFloat(data.stepUpIncValue);
+    if (isNaN(stepVal) || stepVal === 0 || !stepVal) {
+      return 'Please enter a valid annual step-up increment.';
+    }
+    if (data.stepUpIncType === '%' && (stepVal < 1 || stepVal > 50)) {
+      return 'Step-up percentage must be between 1% and 50%.';
+    }
+    if (data.stepUpIncType === '₹' && stepVal < 100) {
+      return 'Step-up increment must be at least ₹100.';
+    }
+  }
+
+  return null;
+};
+
+const computeSIPResults = (data, tab) => {
+  const rate = Math.min(parseFloat(data.returnRate) || 0, 50);
+  const period = parseFloat(data.periodValue) || 0;
+
+  const totalMonths = data.periodType === 'Years'
+    ? Math.round(period * 12)
+    : Math.round(period);
+
+  if (totalMonths <= 0) return null;
+
+  let totalInvested = 0;
+  let maturityValue = 0;
+  let monthlyDetails = [];
+
+  if (tab === 'SIP') {
+    const P = parseFloat(data.sipAmount) || 0;
+    const i = (rate / 100) / 12;
+    const n = totalMonths;
+
+    totalInvested = P * n;
+
+    if (i === 0) {
+      maturityValue = totalInvested;
+    } else {
+      maturityValue = P * ((Math.pow(1 + i, n) - 1) / i) * (1 + i);
+    }
+
+    let closing = 0;
+    for (let m = 1; m <= n; m++) {
+      const opening = closing;
+      const interest = (opening + P) * i;
+      closing = opening + P + interest;
+      monthlyDetails.push({
+        month: m,
+        openingBalance: opening,
+        investment: P,
+        interest: interest,
+        closingBalance: closing
+      });
+    }
+  }
+  else if (tab === 'Lumpsum') {
+    const P = parseFloat(data.lumpsumAmount) || 0;
+    const r = rate / 100;
+    const t = totalMonths / 12;
+
+    totalInvested = P;
+    maturityValue = P * Math.pow(1 + r, t);
+
+    const i_eq = Math.pow(1 + r, 1 / 12) - 1;
+    let closing = 0;
+    for (let m = 1; m <= totalMonths; m++) {
+      const opening = m === 1 ? 0 : closing;
+      const investment = m === 1 ? P : 0;
+      const interest = (opening + investment) * i_eq;
+      closing = opening + investment + interest;
+      monthlyDetails.push({
+        month: m,
+        openingBalance: opening,
+        investment,
+        interest,
+        closingBalance: closing
+      });
+    }
+  }
+  else if (tab === 'Step-Up') {
+    const baseSip = parseFloat(data.stepUpBaseAmount) || 0;
+    const i = (rate / 100) / 12;
+    const stepUpFreqMonths = data.stepUpInterval === 'Every 6 Months' ? 6 : 12;
+    let incVal = parseFloat(data.stepUpIncValue) || 0;
+    if (data.stepUpIncType === '%') {
+      incVal = Math.min(incVal, 50);
+    }
+
+    let currentSip = baseSip;
+    let closing = 0;
+
+    for (let m = 1; m <= totalMonths; m++) {
+      if (m > 1 && (m - 1) % stepUpFreqMonths === 0) {
+        if (data.stepUpIncType === '%') {
+          currentSip = currentSip * (1 + incVal / 100);
+        } else {
+          currentSip = currentSip + incVal;
+        }
+      }
+
+      let investmentThisMonth = 0;
+      if (data.stepUpFreq === 'Monthly') {
+        investmentThisMonth = currentSip;
+      } else if (data.stepUpFreq === 'Quarterly') {
+        if ((m - 1) % 3 === 0) {
+          investmentThisMonth = currentSip * 3;
+        }
+      } else if (data.stepUpFreq === 'Yearly') {
+        if ((m - 1) % 12 === 0) {
+          investmentThisMonth = currentSip * 12;
+        }
+      }
+
+      const opening = closing;
+      const interest = (opening + investmentThisMonth) * i;
+      closing = opening + investmentThisMonth + interest;
+
+      totalInvested += investmentThisMonth;
+
+      monthlyDetails.push({
+        month: m,
+        openingBalance: opening,
+        investment: investmentThisMonth,
+        interest,
+        closingBalance: closing
+      });
+    }
+
+    maturityValue = closing;
+  }
+
+  const estimatedReturns = maturityValue - totalInvested;
+
+  return {
+    totalInvested,
+    maturityValue,
+    estimatedReturns,
+    monthlyDetails,
+    chartData: [
+      { name: 'Total Invested', value: Math.max(0, totalInvested), color: '#F97316' },
+      { name: 'Estimated Returns', value: Math.max(0, estimatedReturns), color: '#22C55E' }
+    ]
+  };
+};
+
+const SIPCalculator = ({ onBack, hasBottomNav = false }) => {
+  const { theme } = useSettings();
+  const { headerRef, scrollRef, tabsRef, handleScroll, syncScroll } = useHeaderScroll({ threshold: 60, tabsThreshold: 64 });
+
+  useEffect(() => {
+    const isDark = theme === 'dark';
+    try {
+      StatusBar.setStyle({ style: isDark ? Style.Dark : Style.Light });
+    } catch (err) {}
+  }, [theme]);
+
   const [activeTab, setActiveTab] = useState('SIP'); // 'SIP' | 'Lumpsum' | 'Step-Up'
-  const [formData, setFormData] = useState({
-    sipAmount: '0',
-    lumpsumAmount: '0',
-    stepUpBaseAmount: '0',
-    returnRate: '0',
-    periodValue: '0',
-    periodType: 'Years',
-    stepUpFreq: 'Monthly', // 'Monthly' | 'Quarterly' | 'Yearly'
-    stepUpInterval: 'Every 1 Year', // 'Every 6 Months' | 'Every 1 Year'
-    stepUpIncType: '%', // '%' | '₹'
-    stepUpIncValue: '0'
-  });
-
-  const [results, setResults] = useState(null);
+  const [formData, setFormData] = useState(() => ({ ...SIP_DEFAULTS }));
+  const [results, setResults] = useState(() => computeSIPResults(SIP_DEFAULTS, 'SIP'));
+  const [hasCalculated, setHasCalculated] = useState(true);
+  const [validationError, setValidationError] = useState(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [detailsViewType, setDetailsViewType] = useState('year'); // 'year' | 'month'
 
@@ -55,6 +279,16 @@ const SIPCalculator = ({ onBack }) => {
   });
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
+  const handleInputFocus = (e) => {
+    const el = e.currentTarget;
+    el.select();
+    requestAnimationFrame(() => {
+      try {
+        el.select();
+      } catch {}
+    });
+  };
+
   const handleInputChange = (field, value) => {
     let val = value;
     if (field === 'sipAmount' || field === 'lumpsumAmount' || field === 'stepUpBaseAmount') {
@@ -64,7 +298,7 @@ const SIPCalculator = ({ onBack }) => {
       if (val !== '' && parseFloat(val) > 50) return;
     }
     if (field === 'periodValue') {
-      const max = formData.periodType === 'Months' ? 960 : 80;
+      const max = formData.periodType === 'Months' ? 600 : 50;
       if (val !== '' && parseFloat(val) > max) return;
     }
     if (field === 'stepUpIncValue' && formData.stepUpIncType === '%') {
@@ -74,197 +308,118 @@ const SIPCalculator = ({ onBack }) => {
       const currentVal = parseFloat(formData.stepUpIncValue) || 0;
       if (currentVal > 50) {
         setFormData(prev => ({ ...prev, stepUpIncType: '%', stepUpIncValue: '50' }));
+        setValidationError(null);
         return;
       }
     }
+    setValidationError(null);
     setFormData(prev => ({ ...prev, [field]: val }));
   };
 
-  // Auto-compounding mathematical loop/formulas
-  const calculateResults = (isSavingToHistory = false) => {
-    const rate = Math.min(parseFloat(formData.returnRate) || 0, 50);
-    const period = parseFloat(formData.periodValue) || 0;
-
-    // Total months calculation
-    const totalMonths = formData.periodType === 'Years'
-      ? Math.round(period * 12)
-      : Math.round(period);
-
-    if (totalMonths <= 0) return;
-
-    let totalInvested = 0;
-    let maturityValue = 0;
-    let monthlyDetails = [];
-
-    if (activeTab === 'SIP') {
-      const P = parseFloat(formData.sipAmount) || 0;
-      const i = (rate / 100) / 12;
-      const n = totalMonths;
-
-      totalInvested = P * n;
-
-      if (i === 0) {
-        maturityValue = totalInvested;
-      } else {
-        maturityValue = P * ((Math.pow(1 + i, n) - 1) / i) * (1 + i);
-      }
-
-      // Generate schedule using the progressive loop
-      let closing = 0;
-      for (let m = 1; m <= n; m++) {
-        const opening = closing;
-        const interest = (opening + P) * i;
-        closing = opening + P + interest;
-        monthlyDetails.push({
-          month: m,
-          openingBalance: opening,
-          investment: P,
-          interest: interest,
-          closingBalance: closing
-        });
-      }
+  const calculateResults = (isSavingToHistory = false, currentData = formData, currentTab = activeTab) => {
+    const error = validateSIPForm(currentData, currentTab);
+    if (error) {
+      setValidationError(error);
+      setResults(null);
+      setHasCalculated(false);
+      return;
     }
-    else if (activeTab === 'Lumpsum') {
-      const P = parseFloat(formData.lumpsumAmount) || 0;
-      const r = rate / 100;
-      const t = totalMonths / 12;
-
-      totalInvested = P;
-      maturityValue = P * Math.pow(1 + r, t);
-
-      // Equivalent monthly rate to match annual compounding: (1 + r)^(1/12) - 1
-      const i_eq = Math.pow(1 + r, 1 / 12) - 1;
-      let closing = 0;
-      for (let m = 1; m <= totalMonths; m++) {
-        const opening = m === 1 ? 0 : closing;
-        const investment = m === 1 ? P : 0;
-        const interest = (opening + investment) * i_eq;
-        closing = opening + investment + interest;
-        monthlyDetails.push({
-          month: m,
-          openingBalance: opening,
-          investment,
-          interest,
-          closingBalance: closing
-        });
-      }
-    }
-    else if (activeTab === 'Step-Up') {
-      const baseSip = parseFloat(formData.stepUpBaseAmount) || 0;
-      const i = (rate / 100) / 12;
-      const stepUpFreqMonths = formData.stepUpInterval === 'Every 6 Months' ? 6 : 12;
-      let incVal = parseFloat(formData.stepUpIncValue) || 0;
-      if (formData.stepUpIncType === '%') {
-        incVal = Math.min(incVal, 50);
-      }
-
-      let currentSip = baseSip;
-      let closing = 0;
-
-      for (let m = 1; m <= totalMonths; m++) {
-        // Apply Step Up triggers
-        if (m > 1 && (m - 1) % stepUpFreqMonths === 0) {
-          if (formData.stepUpIncType === '%') {
-            currentSip = currentSip * (1 + incVal / 100);
-          } else {
-            currentSip = currentSip + incVal;
-          }
-        }
-
-        // Determine investment this month based on frequency
-        let investmentThisMonth = 0;
-        let isInvestmentMonth = false;
-
-        if (formData.stepUpFreq === 'Monthly') {
-          investmentThisMonth = currentSip;
-          isInvestmentMonth = true;
-        } else if (formData.stepUpFreq === 'Quarterly') {
-          if ((m - 1) % 3 === 0) {
-            investmentThisMonth = currentSip * 3;
-            isInvestmentMonth = true;
-          }
-        } else if (formData.stepUpFreq === 'Yearly') {
-          if ((m - 1) % 12 === 0) {
-            investmentThisMonth = currentSip * 12;
-            isInvestmentMonth = true;
-          }
-        }
-
-        const opening = closing;
-        const interest = (opening + investmentThisMonth) * i;
-        closing = opening + investmentThisMonth + interest;
-
-        totalInvested += investmentThisMonth;
-
-        monthlyDetails.push({
-          month: m,
-          openingBalance: opening,
-          investment: investmentThisMonth,
-          interest,
-          closingBalance: closing
-        });
-      }
-
-      maturityValue = closing;
-    }
-
-    const estimatedReturns = maturityValue - totalInvested;
-
-    const computedResults = {
-      totalInvested,
-      maturityValue,
-      estimatedReturns,
-      monthlyDetails,
-      chartData: [
-        { name: 'Total Invested', value: Math.max(0, totalInvested), color: '#F97316' },
-        { name: 'Estimated Returns', value: Math.max(0, estimatedReturns), color: '#22C55E' }
-      ]
-    };
-
+    setValidationError(null);
+    const computedResults = computeSIPResults(currentData, currentTab);
     setResults(computedResults);
+    setHasCalculated(true);
 
     // Save to history list if manually calculated
-    if (isSavingToHistory) {
-      const displayAmount = activeTab === 'SIP'
-        ? formData.sipAmount
-        : activeTab === 'Lumpsum'
-          ? formData.lumpsumAmount
-          : formData.stepUpBaseAmount;
+    if (isSavingToHistory && computedResults) {
+      const displayAmount = currentTab === 'SIP'
+        ? currentData.sipAmount
+        : currentTab === 'Lumpsum'
+          ? currentData.lumpsumAmount
+          : currentData.stepUpBaseAmount;
 
+      const rate = Math.min(parseFloat(currentData.returnRate) || 0, 50);
       const newHistoryItem = {
         id: Date.now(),
-        tab: activeTab,
-        summary: `${activeTab} Plan: ₹${parseFloat(displayAmount).toLocaleString('en-IN')} @ ${rate}% for ${formData.periodValue} ${formData.periodType}`,
-        formData: { ...formData, returnRate: String(rate) }, // Save clamped rate
+        tab: currentTab,
+        amount: parseFloat(displayAmount) || 0,
+        rate: rate,
+        periodValue: currentData.periodValue,
+        periodType: currentData.periodType,
+        totalInvested: computedResults.totalInvested,
+        estimatedReturns: computedResults.estimatedReturns,
+        maturityValue: computedResults.maturityValue,
+        summary: `${currentTab}: ₹${parseFloat(displayAmount || 0).toLocaleString('en-IN')}${currentTab !== 'Lumpsum' ? '/mo' : ''} @ ${rate}% for ${currentData.periodValue} ${currentData.periodType}`,
+        formData: { ...currentData, returnRate: String(rate) },
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
       setHistory(prev => {
-        const updated = [newHistoryItem, ...prev.filter(x => x.summary !== newHistoryItem.summary)].slice(0, 5);
-        localStorage.setItem('sip_calculator_history', JSON.stringify(updated));
+        const updated = [newHistoryItem, ...prev.filter(x => x.summary !== newHistoryItem.summary)].slice(0, 20);
+        try {
+          localStorage.setItem('sip_calculator_history', JSON.stringify(updated));
+        } catch {}
         return updated;
       });
     }
   };
 
   // Convert Period Years <-> Months
-  const handlePeriodTypeToggle = () => {
-    setFormData(prev => {
-      const currentVal = parseFloat(prev.periodValue) || 0;
-      if (prev.periodType === 'Years') {
-        return {
-          ...prev,
-          periodType: 'Months',
-          periodValue: String(Math.round(currentVal * 12))
-        };
+  const handlePeriodToggle = (targetUnit) => {
+    if (formData.periodType === targetUnit) return;
+    const currentPeriod = parseFloat(formData.periodValue);
+    let newPeriodValue = '';
+    if (!isNaN(currentPeriod) && currentPeriod > 0) {
+      newPeriodValue = targetUnit === 'Months'
+        ? String(Math.min(600, Math.round(currentPeriod * 12)))
+        : String(Math.min(50, Math.max(1, Math.round(currentPeriod / 12))));
+    }
+
+    const nextFormData = {
+      ...formData,
+      periodType: targetUnit,
+      periodValue: newPeriodValue
+    };
+    setFormData(nextFormData);
+    if (hasCalculated && results) {
+      const err = validateSIPForm(nextFormData, activeTab);
+      if (!err) {
+        setValidationError(null);
+        setResults(computeSIPResults(nextFormData, activeTab));
       } else {
-        return {
-          ...prev,
-          periodType: 'Years',
-          periodValue: String(Math.round((currentVal / 12) * 100) / 100)
-        };
+        setValidationError(err);
+        setResults(null);
+        setHasCalculated(false);
+      }
+    }
+  };
+
+  const handlePeriodTypeToggle = () => {
+    handlePeriodToggle(formData.periodType === 'Years' ? 'Months' : 'Years');
+  };
+
+  const handleTabChange = (newTab) => {
+    if (newTab === activeTab) return;
+    setActiveTab(newTab);
+    setValidationError(null);
+
+    requestAnimationFrame(() => {
+      if (scrollRef.current) {
+        syncScroll(scrollRef.current.scrollTop);
       }
     });
+
+    // If screen is in reset/uncalculated state, preserve cleared inputs and keep results null
+    if (!hasCalculated || !results) {
+      return;
+    }
+
+    const err = validateSIPForm(formData, newTab);
+    if (!err) {
+      setResults(computeSIPResults(formData, newTab));
+    } else {
+      setResults(null);
+      setHasCalculated(false);
+    }
   };
 
   // Format final value into lakhs/crores parentheses
@@ -277,39 +432,60 @@ const SIPCalculator = ({ onBack }) => {
     return '';
   };
 
-  // Trigger initial calculation
-  useEffect(() => {
-    calculateResults(false);
-  }, [activeTab]);
+  const handleReset = (e) => {
+    if (e) {
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopPropagation === 'function') e.stopPropagation();
+    }
 
-  const handleReset = () => {
+    // Blur any active input so formatted display values re-render cleanly
+    if (typeof document !== 'undefined' && document.activeElement && typeof document.activeElement.blur === 'function') {
+      try {
+        document.activeElement.blur();
+      } catch {}
+    }
+
     setFormData({
-      sipAmount: '0',
-      lumpsumAmount: '0',
-      stepUpBaseAmount: '0',
-      returnRate: '0',
-      periodValue: '0',
+      sipAmount: '',
+      lumpsumAmount: '',
+      stepUpBaseAmount: '',
+      returnRate: '',
+      periodValue: '',
       periodType: 'Years',
       stepUpFreq: 'Monthly',
       stepUpInterval: 'Every 1 Year',
       stepUpIncType: '%',
-      stepUpIncValue: '0'
+      stepUpIncValue: ''
     });
+
+    setHasCalculated(false);
     setResults(null);
+    setValidationError(null);
   };
 
   // Native share text builder
-  const handleShare = () => {
-    if (!results) return;
-    const text = `SIP Growth Calculations:\n\n` +
-      `Type: ${activeTab}\n` +
+  const handleShare = async () => {
+    const currentResults = results || computeSIPResults(formData, activeTab);
+    if (!currentResults) return;
+
+    const displayAmount = activeTab === 'SIP'
+      ? formData.sipAmount
+      : activeTab === 'Lumpsum'
+        ? formData.lumpsumAmount
+        : formData.stepUpBaseAmount;
+
+    const formattedSummary = `SIP Calculation Summary\n\n` +
+      `Plan Mode: ${activeTab}\n` +
+      `Investment Amount: ₹${parseFloat(displayAmount || 0).toLocaleString('en-IN')}${activeTab !== 'Lumpsum' ? ' / month' : ''}\n` +
+      `Expected Return: ${formData.returnRate}% p.a.\n` +
       `Period: ${formData.periodValue} ${formData.periodType}\n` +
-      `Rate of Return: ${formData.returnRate}%\n` +
-      `Total Invested: ${formatCurrency(results.totalInvested)}\n` +
-      `Estimated Returns: ${formatCurrency(results.estimatedReturns)}\n` +
-      `Maturity Value: ${formatCurrency(results.maturityValue)} ${formatLakhsCrores(results.maturityValue)}\n\n` +
-      `Plan smart, grow wealthy! Saved via EMI Pro.`;
-    shareAsText('SIP Wealth Growth Plan', text);
+      `${activeTab === 'Step-Up' ? `Step-Up Rate: ${formData.stepUpIncValue}${formData.stepUpIncType === '%' ? '%' : ' ₹'} / year\n` : ''}` +
+      `Total Investment: ${formatCurrency(currentResults.totalInvested)}\n` +
+      `Estimated Returns: ${formatCurrency(currentResults.estimatedReturns)}\n` +
+      `Maturity Value: ${formatCurrency(currentResults.maturityValue)} (${formatLakhsCrores(currentResults.maturityValue)})\n\n` +
+      `Plan smart, grow wealthy! Calculated via EMI Pro.`;
+
+    await shareAsText('SIP Calculation Summary', formattedSummary);
   };
 
   // Aggregate yearly breakdown for the details modal
@@ -359,6 +535,9 @@ const SIPCalculator = ({ onBack }) => {
   const restoreHistory = (item) => {
     setActiveTab(item.tab);
     setFormData(item.formData);
+    setValidationError(null);
+    setHasCalculated(true);
+    setResults(computeSIPResults(item.formData, item.tab));
     setIsHistoryOpen(false);
   };
   const growthMultiplier = results
@@ -366,52 +545,61 @@ const SIPCalculator = ({ onBack }) => {
     : '1.0';
 
   return (
-    <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 overflow-hidden h-full transition-colors duration-300 relative">
-      {/* Header Bar */}
-      <header className="px-6 pt-14 pb-4 flex justify-between items-center bg-white dark:bg-gray-900 border-b border-gray-50 dark:border-gray-800 sticky top-0 z-20 transition-colors duration-300">
-        <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-2 -ml-2 text-gray-600 dark:text-gray-300 active:scale-90 transition-transform">
-            <ChevronLeft size={24} />
-          </button>
-          <h1 className="text-lg font-black text-gray-900 dark:text-white">SIP Calculator</h1>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setIsHistoryOpen(true)}
-            className="p-2.5 bg-gray-50 dark:bg-gray-800 rounded-full text-gray-600 dark:text-gray-300 active:scale-90 transition-transform"
-          >
-            <History size={18} />
-          </button>
-          <button
-            onClick={handleShare}
-            className="p-2.5 bg-gray-50 dark:bg-gray-800 rounded-full text-gray-600 dark:text-gray-300 active:scale-90 transition-transform"
-          >
-            <Share2 size={18} />
-          </button>
-        </div>
-      </header>
+    <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 overflow-hidden h-full relative">
+      {/* Main Content Area with Sticky Header */}
+      <div 
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto no-scrollbar bg-transparent"
+        style={{
+          paddingBottom: `calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + ${hasBottomNav ? '88px' : '28px'})`
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title="SIP Calculator"
+          variant="soft-blue"
+          onBack={onBack}
+          rightActions={
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setIsHistoryOpen(true)}
+                aria-label="Calculation History"
+                title="History"
+                className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center"
+              >
+                <History size={20} strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                onClick={handleShare}
+                aria-label="Share Calculation"
+                title="Share"
+                className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center"
+              >
+                <Share2 size={20} strokeWidth={2} />
+              </button>
+            </div>
+          }
+        />
 
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto no-scrollbar px-6 pt-6 pb-36 bg-transparent">
+        {/* Sticky Collapsing Tab Switcher */}
+        <CollapsingTabs
+          ref={tabsRef}
+          tabs={[
+            { id: 'SIP', label: 'SIP' },
+            { id: 'Lumpsum', label: 'Lumpsum' },
+            { id: 'Step-Up', label: 'Step-Up' },
+          ]}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+        />
 
-        {/* 3-way Segmented Navigation pill */}
-        <div className="bg-gray-100 dark:bg-gray-850 p-1.5 rounded-[2rem] flex gap-1 mb-8 shadow-inner transition-colors duration-300">
-          {['SIP', 'Lumpsum', 'Step-Up'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-3.5 rounded-[1.7rem] text-xs font-black uppercase tracking-wider transition-all duration-300 ${activeTab === tab
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
+        <div className="px-6 pt-4">
 
         {/* Form Container */}
-        <div className="bg-white/40 dark:bg-gray-800/40 backdrop-blur-sm rounded-3xl p-2 mb-8 shadow-inner border border-white/50 dark:border-gray-800/50">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl p-2 mb-8 shadow-sm border border-gray-100 dark:border-gray-800">
           <div className="p-4">
 
             {/* TAB 1: SIP */}
@@ -431,14 +619,14 @@ const SIPCalculator = ({ onBack }) => {
 
                 {/* Dropdown for SIP frequency */}
                 <div className="flex items-center justify-between gap-4 mb-5">
-                  <label className="text-sm font-semibold text-gray-600 dark:text-gray-400 flex-1">
+                  <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 flex-1 leading-[1.3]">
                     SIP Frequency
                   </label>
                   <div className="relative flex items-center flex-[1.5]">
                     <select
                       value={formData.stepUpFreq}
                       onChange={(e) => handleInputChange('stepUpFreq', e.target.value)}
-                      className="w-full bg-white dark:bg-gray-800 border-none rounded-xl px-4 py-3.5 shadow-sm text-sm font-bold text-gray-850 dark:text-gray-100 outline-none focus:ring-2 focus:ring-primary/50 transition-all text-right pr-4 appearance-none cursor-pointer"
+                      className="w-full bg-[#F8FAFC] dark:bg-gray-800 border border-[#CBD5E1] dark:border-slate-700 rounded-xl px-4 py-3.5 shadow-sm text-sm font-semibold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-right pr-4 appearance-none cursor-pointer"
                     >
                       <option value="Monthly">Monthly</option>
                       <option value="Quarterly">Quarterly</option>
@@ -449,18 +637,18 @@ const SIPCalculator = ({ onBack }) => {
 
                 {/* Segmented control for Step Up frequency */}
                 <div className="flex items-center justify-between gap-4 mb-5">
-                  <label className="text-sm font-semibold text-gray-600 dark:text-gray-400 flex-1">
+                  <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 flex-1 leading-[1.3]">
                     Step-Up Frequency
                   </label>
-                  <div className="flex-[1.5] flex bg-white dark:bg-gray-800 p-1 rounded-xl shadow-sm">
+                  <div className="flex-[1.5] flex bg-[#F8FAFC] dark:bg-gray-800 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700/60">
                     {['Every 6 Months', 'Every 1 Year'].map((interval) => (
                       <button
                         key={interval}
                         type="button"
                         onClick={() => handleInputChange('stepUpInterval', interval)}
-                        className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-all ${formData.stepUpInterval === interval
-                          ? 'bg-primary text-white shadow-md'
-                          : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                        className={`flex-1 py-1.5 text-[12px] font-semibold rounded-lg transition-all ${formData.stepUpInterval === interval
+                          ? 'bg-primary text-white font-bold shadow-md'
+                          : 'text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'
                           }`}
                       >
                         {interval === 'Every 6 Months' ? '6 Mos' : '1 Yr'}
@@ -471,7 +659,7 @@ const SIPCalculator = ({ onBack }) => {
 
                 {/* Step Up increment rate/amount with currency/percent switcher */}
                 <div className="flex items-center justify-between gap-4 mb-5">
-                  <label className="text-sm font-semibold text-gray-600 dark:text-gray-400 flex-1">
+                  <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 flex-1 leading-[1.3]">
                     Step-Up Increment
                   </label>
                   <div className="flex-[1.5] flex items-center gap-2">
@@ -481,25 +669,26 @@ const SIPCalculator = ({ onBack }) => {
                         inputMode="decimal"
                         placeholder={formData.stepUpIncType === '%' ? '10' : 'e.g. 5,000'}
                         value={formData.stepUpIncType === '%' ? formData.stepUpIncValue : formatNumericInput(formData.stepUpIncValue)}
+                        onFocus={handleInputFocus}
                         onChange={(e) => {
                           const val = formData.stepUpIncType === '%'
                             ? e.target.value.replace(/[^0-9.]/g, '')
                             : parseFormattedNumber(e.target.value);
                           handleInputChange('stepUpIncValue', val);
                         }}
-                        className="w-full bg-white dark:bg-gray-800 border-none rounded-xl px-4 py-3.5 shadow-sm text-sm font-bold text-gray-800 dark:text-gray-100 outline-none focus:ring-2 focus:ring-primary/50 transition-all text-right pr-4"
+                        className="w-full bg-[#F8FAFC] dark:bg-gray-800 border border-[#CBD5E1] dark:border-slate-700 rounded-xl px-4 py-3.5 shadow-sm text-sm font-semibold text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-right pr-4"
                       />
                     </div>
-                    <div className="bg-white dark:bg-gray-800 p-1 rounded-xl shadow-sm flex border border-gray-100 dark:border-gray-700/50">
+                    <div className="bg-[#F8FAFC] dark:bg-gray-800 p-1 rounded-xl shadow-sm flex border border-slate-200 dark:border-slate-700/60">
                       <button
                         type="button"
                         onClick={() => handleInputChange('stepUpIncType', '%')}
-                        className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-all ${formData.stepUpIncType === '%' ? 'bg-primary text-white shadow-md' : 'text-gray-500'}`}
+                        className={`px-3 py-1 text-[12px] font-semibold rounded-lg transition-all ${formData.stepUpIncType === '%' ? 'bg-primary text-white font-bold shadow-md' : 'text-slate-600 dark:text-slate-300'}`}
                       >%</button>
                       <button
                         type="button"
                         onClick={() => handleInputChange('stepUpIncType', '₹')}
-                        className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-all ${formData.stepUpIncType === '₹' ? 'bg-primary text-white shadow-md' : 'text-gray-500'}`}
+                        className={`px-3 py-1 text-[12px] font-semibold rounded-lg transition-all ${formData.stepUpIncType === '₹' ? 'bg-primary text-white font-bold shadow-md' : 'text-slate-600 dark:text-slate-300'}`}
                       >₹</button>
                     </div>
                   </div>
@@ -512,7 +701,7 @@ const SIPCalculator = ({ onBack }) => {
 
             {/* Period Input with inline capsule toggle */}
             <div className="flex items-center justify-between gap-4 mb-2">
-              <label className="text-sm font-semibold text-gray-600 dark:text-gray-400 flex-1">Period</label>
+              <label className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 flex-1 leading-[1.3]">Period</label>
               <div className="flex-[1.5] flex items-center gap-2">
                 <div className="relative flex-1">
                   <input
@@ -520,38 +709,21 @@ const SIPCalculator = ({ onBack }) => {
                     inputMode="decimal"
                     placeholder={formData.periodType === 'Years' ? "e.g. 10" : "e.g. 120"}
                     value={formatNumericInput(formData.periodValue)}
+                    onFocus={handleInputFocus}
                     onChange={(e) => handleInputChange('periodValue', parseFormattedNumber(e.target.value))}
-                    className="w-full bg-white dark:bg-gray-800 border-none rounded-xl px-4 py-3.5 shadow-sm text-sm font-bold text-gray-800 dark:text-gray-100 outline-none focus:ring-2 focus:ring-primary/50 transition-all text-right pr-4"
+                    className="w-full bg-[#F8FAFC] dark:bg-gray-800 border border-[#CBD5E1] dark:border-slate-700 rounded-xl px-4 py-3.5 shadow-sm text-sm font-semibold text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-right pr-4"
                   />
                 </div>
-                <div className="bg-white dark:bg-gray-800 p-1 rounded-xl shadow-sm flex border border-gray-100 dark:border-gray-700/50">
+                <div className="bg-[#F8FAFC] dark:bg-gray-800 p-1 rounded-xl shadow-sm flex border border-slate-200 dark:border-slate-700/60">
                   <button
                     type="button"
-                    onClick={() => {
-                      if (formData.periodType === 'Months') {
-                        const currentPeriod = parseFloat(formData.periodValue) || 0;
-                        setFormData(p => ({
-                          ...p,
-                          periodType: 'Years',
-                          periodValue: String(Math.round(currentPeriod / 12))
-                        }));
-                      }
-                    }}
-                    className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-all ${formData.periodType === 'Years' ? 'bg-primary text-white shadow-md' : 'text-gray-500'}`}
+                    onClick={() => handlePeriodToggle('Years')}
+                    className={`px-3 py-1 text-[12px] font-semibold rounded-lg transition-all ${formData.periodType === 'Years' ? 'bg-primary text-white font-bold shadow-md' : 'text-slate-600 dark:text-slate-300'}`}
                   >Yrs</button>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (formData.periodType === 'Years') {
-                        const currentPeriod = parseFloat(formData.periodValue) || 0;
-                        setFormData(p => ({
-                          ...p,
-                          periodType: 'Months',
-                          periodValue: String(currentPeriod * 12)
-                        }));
-                      }
-                    }}
-                    className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-all ${formData.periodType === 'Months' ? 'bg-primary text-white shadow-md' : 'text-gray-500'}`}
+                    onClick={() => handlePeriodToggle('Months')}
+                    className={`px-3 py-1 text-[12px] font-semibold rounded-lg transition-all ${formData.periodType === 'Months' ? 'bg-primary text-white font-bold shadow-md' : 'text-slate-600 dark:text-slate-300'}`}
                   >Mos</button>
                 </div>
               </div>
@@ -559,17 +731,33 @@ const SIPCalculator = ({ onBack }) => {
           </div>
         </div>
 
+        {/* Friendly Inline Validation Message */}
+        {validationError && (
+          <div className="mb-4 p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-2xl flex items-center gap-2.5 text-amber-700 dark:text-amber-300 text-xs font-semibold">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+            <span>{validationError}</span>
+          </div>
+        )}
+
         {/* Calculate & Reset Actions */}
-        <div className="flex gap-3 mb-8">
-          <button onClick={handleReset} className="flex-1 py-4 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2">
+        <div className="flex gap-3 mb-8 relative z-10">
+          <button
+            type="button"
+            onClick={handleReset}
+            className="flex-1 py-4 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer select-none"
+          >
             <RotateCcw size={16} /> Reset
           </button>
-          <button onClick={() => calculateResults(true)} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-200 dark:shadow-blue-900/30 active:scale-95 transition-all flex items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => calculateResults(true)}
+            className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-200 dark:shadow-blue-900/30 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer select-none"
+          >
             Calculate <ArrowRight size={16} />
           </button>
         </div>
 
-        {results && (
+        {hasCalculated && results && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 pb-12">
             <div className="bg-white dark:bg-gray-800/80 border-2 border-gray-50 dark:border-gray-800 rounded-[2.5rem] p-6 shadow-sm transition-all duration-300">
               {/* Simple & Standard Wealth Summary Panel */}
@@ -652,7 +840,7 @@ const SIPCalculator = ({ onBack }) => {
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                     <span className="text-[8px] font-black text-slate-455 dark:text-gray-500 uppercase tracking-widest leading-none mb-0.5">Growth</span>
                     <span className="text-sm font-black text-emerald-500">
-                      +{((results.estimatedReturns / results.maturityValue) * 100 || 0).toFixed(0)}%
+                      +{Math.round(results.totalInvested > 0 ? (results.estimatedReturns / results.totalInvested) * 100 : 0)}%
                     </span>
                     <span className="text-[7px] font-bold text-slate-400 dark:text-slate-500 mt-0.5">
                       {growthMultiplier}x Val
@@ -707,24 +895,31 @@ const SIPCalculator = ({ onBack }) => {
             </div>
           </motion.div>
         )}
+      </div>
     </div>
 
-      {/* DETAIL SCHEDULE MODAL (Tabular Breakdown Bottom Sheet) */ }
-  <AnimatePresence>
-    {isDetailsOpen && results && (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm z-[80] flex flex-col justify-end"
-      >
-        <motion.div
-          initial={{ y: '100%' }}
-          animate={{ y: 0 }}
-          exit={{ y: '100%' }}
-          transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-          className="bg-white dark:bg-gray-800 rounded-t-[3rem] shadow-2xl h-[85%] flex flex-col overflow-hidden transition-colors duration-300"
-        >
+      {/* DETAIL SCHEDULE MODAL (Tabular Breakdown Bottom Sheet) */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {isDetailsOpen && results && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end"
+              style={{ zIndex: 9999 }}
+            >
+              <motion.div
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+                className="bg-white dark:bg-gray-800 rounded-t-[3rem] shadow-2xl h-[85%] flex flex-col overflow-hidden transition-colors duration-300 z-[10000]"
+                style={{
+                  zIndex: 10000,
+                  paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 20px)',
+                }}
+              >
           {/* Bottom Sheet Header */}
           <div className="px-6 pt-8 pb-4 flex justify-between items-center border-b border-gray-55 dark:border-gray-700">
             <div>
@@ -793,77 +988,87 @@ const SIPCalculator = ({ onBack }) => {
               </tbody>
             </table>
           </div>
-        </motion.div>
-      </motion.div>
-    )}
-  </AnimatePresence>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
-  {/* LOCAL CALCULATIONS HISTORY DRAWER */ }
-  <AnimatePresence>
-    {isHistoryOpen && (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm z-[80] flex flex-col justify-end"
-      >
-        <motion.div
-          initial={{ y: '100%' }}
-          animate={{ y: 0 }}
-          exit={{ y: '100%' }}
-          className="bg-white dark:bg-gray-800 rounded-t-[3rem] shadow-2xl max-h-[70%] flex flex-col overflow-hidden transition-colors duration-300"
-        >
-          <div className="px-6 pt-8 pb-4 flex justify-between items-center border-b border-gray-50 dark:border-gray-700">
-            <div>
-              <h2 className="text-lg font-black text-gray-900 dark:text-white">Recent Calculations</h2>
-              <p className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider">Load past SIP plans</p>
-            </div>
-            <button
-              onClick={() => setIsHistoryOpen(false)}
-              className="p-2 bg-gray-50 dark:bg-gray-700 rounded-full text-gray-400 dark:text-gray-300 active:scale-90 transition-transform"
+      {/* LOCAL CALCULATIONS HISTORY DRAWER */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {isHistoryOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end"
+              style={{ zIndex: 9999 }}
             >
-              <X size={18} />
-            </button>
-          </div>
-
-          <div
-            className="flex-1 overflow-y-auto max-h-[calc(100%-80px)] px-6 py-6 space-y-3.5 overscroll-contain touch-pan-y"
-            style={{ WebkitOverflowScrolling: 'touch' }}
-          >
-            {history.length > 0 ? (
-              history.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => restoreHistory(item)}
-                  className="bg-gray-50 dark:bg-gray-900 rounded-[1.7rem] p-5 flex items-center justify-between border border-gray-100 dark:border-gray-800 hover:border-blue-100 dark:hover:border-blue-900/50 cursor-pointer active:scale-[0.99] transition-all group"
-                >
-                  <div className="flex-1 pr-3">
-                    <span className="block text-[8px] font-black text-blue-500 uppercase tracking-widest mb-1.5">{item.tab} Plan</span>
-                    <p className="text-xs font-black text-gray-800 dark:text-gray-250 leading-normal">{item.summary}</p>
+              <motion.div
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                className="bg-white dark:bg-gray-800 rounded-t-[3rem] shadow-2xl max-h-[75%] flex flex-col overflow-hidden transition-colors duration-300 z-[10000]"
+                style={{
+                  zIndex: 10000,
+                  paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 20px)',
+                }}
+              >
+                <div className="px-6 pt-8 pb-4 flex justify-between items-center border-b border-gray-50 dark:border-gray-700">
+                  <div>
+                    <h2 className="text-lg font-black text-gray-900 dark:text-white">Recent Calculations</h2>
+                    <p className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider">Load past SIP plans</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase">{item.timestamp}</span>
-                    <button
-                      onClick={(e) => deleteHistoryItem(item.id, e)}
-                      className="p-2 text-gray-300 hover:text-red-500 active:scale-90 transition-all"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => setIsHistoryOpen(false)}
+                    className="p-2 bg-gray-50 dark:bg-gray-700 rounded-full text-gray-400 dark:text-gray-300 active:scale-90 transition-transform"
+                  >
+                    <X size={18} />
+                  </button>
                 </div>
-              ))
-            ) : (
-              <div className="py-20 text-center text-gray-400">
-                <History size={40} className="mx-auto mb-4 opacity-20" />
-                <p className="text-sm font-black">No past calculations</p>
-                <p className="text-xs mt-1">Calculated results will show up here</p>
-              </div>
-            )}
-          </div>
-        </motion.div>
-      </motion.div>
-    )}
-  </AnimatePresence>
+
+                <div
+                  className="flex-1 overflow-y-auto max-h-[calc(100%-80px)] px-6 py-6 space-y-3.5 overscroll-contain touch-pan-y"
+                  style={{ WebkitOverflowScrolling: 'touch' }}
+                >
+                  {history.length > 0 ? (
+                    history.map((item) => (
+                      <div
+                        key={item.id}
+                        onClick={() => restoreHistory(item)}
+                        className="bg-gray-50 dark:bg-gray-900 rounded-[1.7rem] p-5 flex items-center justify-between border border-gray-100 dark:border-gray-800 hover:border-blue-100 dark:hover:border-blue-900/50 cursor-pointer active:scale-[0.99] transition-all group"
+                      >
+                        <div className="flex-1 pr-3">
+                          <span className="block text-[8px] font-black text-blue-500 uppercase tracking-widest mb-1.5">{item.tab} Plan</span>
+                          <p className="text-xs font-black text-gray-800 dark:text-gray-250 leading-normal">{item.summary}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase">{item.timestamp}</span>
+                          <button
+                            onClick={(e) => deleteHistoryItem(item.id, e)}
+                            className="p-2 text-gray-300 hover:text-red-500 active:scale-90 transition-all"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="py-20 text-center text-gray-400">
+                      <History size={40} className="mx-auto mb-4 opacity-20" />
+                      <p className="text-sm font-black">No past calculations</p>
+                      <p className="text-xs mt-1">Calculated results will show up here</p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div >
   );
 };

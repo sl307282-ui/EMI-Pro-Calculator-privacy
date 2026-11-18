@@ -2,8 +2,12 @@ import React, { useState, useMemo } from 'react';
 import { ChevronLeft, Share2, Calendar, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { shareAsText } from '../utils/exportUtils';
+import BackButton from './BackButton';
+import AppHeader from './AppHeader';
+import useHeaderScroll from '../hooks/useHeaderScroll';
 
 const AdvanceEMIDetails = ({ data, onBack }) => {
+  const { headerRef, handleScroll } = useHeaderScroll();
   const [viewType, setViewType] = useState('month'); // 'year' or 'month'
 
   const schedule = useMemo(() => {
@@ -103,21 +107,31 @@ const AdvanceEMIDetails = ({ data, onBack }) => {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-300 overflow-hidden">
-      {/* Header */}
-      <header className="px-6 pt-14 pb-4 flex justify-between items-center bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 transition-colors duration-300 sticky top-0 z-20 shadow-sm">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 -ml-2 text-gray-800 dark:text-gray-200 active:scale-90 transition-transform">
-            <ChevronLeft size={24} />
-          </button>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Details</h1>
-        </div>
-        <button onClick={handleShare} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-600 dark:text-gray-400 active:scale-90 transition-transform">
-          <Share2 size={20} />
-        </button>
-      </header>
+    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-300 overflow-hidden relative">
+      <div 
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto min-h-0 no-scrollbar"
+        style={{
+          paddingBottom: 'calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px)'
+        }}
+      >
+        <AppHeader
+          headerRef={headerRef}
+          title="Schedule Details"
+          onBack={onBack}
+          rightActions={
+            <button 
+              type="button"
+              onClick={handleShare} 
+              className="p-1.5 bg-transparent border-none shadow-none text-[#0F172A] dark:text-[#F8FAFC] active:opacity-60 active:scale-95 transition-all duration-100 cursor-pointer select-none flex items-center justify-center"
+              title="Share"
+              aria-label="Share"
+            >
+              <Share2 size={20} strokeWidth={2} />
+            </button>
+          }
+        />
 
-      <div className="flex-1 overflow-y-auto min-h-0">
         {/* Top Summary Table */}
         <section className="p-6">
           <div className="bg-white dark:bg-gray-800/40 rounded-3xl p-6 shadow-soft border border-gray-100 dark:border-gray-800 grid grid-cols-2 gap-y-6 gap-x-4">
